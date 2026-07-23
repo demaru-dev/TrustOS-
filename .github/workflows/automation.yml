@@ -45,7 +45,7 @@ jobs:
       run: |
         echo "Configuring git..."
         git config --global user.name "Eli Trust"
-        git config --global user.email "eli.trust@trustcorp.ai"
+        git config --global user.email "arsenetrams@gmail.com"
         echo "Git configured successfully"
         
     - name: Run Automation
