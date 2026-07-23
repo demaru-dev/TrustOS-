@@ -24,18 +24,22 @@ jobs:
         fetch-depth: 0
         token: ${{ secrets.PAT_TOKEN }}
       
+    - name: List files for debugging
+      run: |
+        pwd
+        ls -la
+        ls -la scripts/ || echo "scripts folder not found"
+        cat package.json || echo "package.json not found"
+      
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
         
     - name: Install dependencies
-      run: npm install
-      
-    - name: Setup GitHub CLI
       run: |
-        sudo apt-get update
-        sudo apt-get install -y gh
+        npm install
+        npm install -g gh
         
     - name: Configure Git
       run: |
