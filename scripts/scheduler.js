@@ -22,28 +22,62 @@ class DynamicScheduler {
         this.currentDelay = this.baseDelay;
         this.logFile = path.join(__dirname, '../scheduler.log');
         this.isRunning = false;
-        this.githubToken = process.env.GITHUB_TOKEN;
+        this.lastRunFile = path.join(__dirname, '../.lastrun');
         
-        if (!this.githubToken) {
-            console.error('❌ GITHUB_TOKEN environment variable not set');
+        // Get token from environment
+        this.token = process.env.PAT_TOKEN;
+        
+        if (!this.token) {
+            console.error('❌ PAT_TOKEN environment variable not set!');
+            console.error('Please set PAT_TOKEN in your environment or GitHub secrets.');
             process.exit(1);
         }
+        
+        // Create logs directory if it doesn't exist
+        const logDir = path.dirname(this.logFile);
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+        
+        // Read last run time if exists
+        if (fs.existsSync(this.lastRunFile)) {
+            try {
+                this.lastRunTime = parseInt(fs.readFileSync(this.lastRunFile, 'utf8'));
+                this.log(`📊 Last run was at: ${new Date(this.lastRunTime).toISOString()}`);
+            } catch (error) {
+                this.log('📊 No valid last run time found');
+                this.lastRunTime = 0;
+            }
+        } else {
+            this.lastRunTime = 0;
+        }
+        
+        this.log('🚀 Dynamic Scheduler Initialized');
+        this.log(`📊 Initial delay: ${this.baseDelay} minutes`);
+        this.log(`🔑 Token configured: ${this.token ? 'Yes' : 'No'}`);
     }
 
     log(message) {
         const timestamp = new Date().toISOString();
-        const logMessage = `[${timestamp}] ${message}\n`;
-        console.log(logMessage.trim());
-        fs.appendFileSync(this.logFile, logMessage);
+        const logMessage = `[${timestamp}] ${message}`;
+        console.log(logMessage);
+        try {
+            fs.appendFileSync(this.logFile, logMessage + '\n');
+        } catch (error) {
+            console.error('Failed to write to log:', error.message);
+        }
     }
 
-    async executeCommand(command) {
+    executeCommand(command) {
         return new Promise((resolve, reject) => {
+            this.log(`Executing: ${command}`);
             exec(command, (error, stdout, stderr) => {
                 if (error) {
-                    this.log(`Command failed: ${error.message}`);
+                    this.log(`❌ Command failed: ${error.message}`);
+                    if (stderr) this.log(`stderr: ${stderr}`);
                     reject(error);
                 } else {
+                    if (stdout) this.log(`stdout: ${stdout}`);
                     resolve(stdout);
                 }
             });
@@ -68,7 +102,7 @@ class DynamicScheduler {
             
             const triggerCommand = `
                 curl -X POST \
-                -H "Authorization: token ${this.githubToken}" \
+                -H "Authorization: token ${this.token}" \
                 -H "Accept: application/vnd.github.v3+json" \
                 https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches \
                 -d '{"ref":"main"}'
@@ -82,8 +116,11 @@ class DynamicScheduler {
             this.currentDelay = this.baseDelay + this.runCount;
             this.log(`⏰ Next run scheduled in ${this.currentDelay} minutes`);
             
+            // Update the last run time
+            fs.writeFileSync(this.lastRunFile, Date.now().toString());
+            
             // Update the cron schedule
-            this.updateCronSchedule();
+            await this.updateCronSchedule();
             
         } catch (error) {
             this.log(`❌ Failed to trigger automation: ${error.message}`);
@@ -92,7 +129,7 @@ class DynamicScheduler {
         }
     }
 
-    updateCronSchedule() {
+    async updateCronSchedule() {
         // Update the .github/workflows/automation.yml with new cron schedule
         const workflowPath = path.join(__dirname, '../.github/workflows/automation.yml');
         
@@ -121,13 +158,17 @@ class DynamicScheduler {
                 this.log(`📝 Updated cron schedule to: ${cronExpression}`);
                 
                 // Commit and push the change
-                this.executeCommand(`
-                    git config user.name "Eli Trust" && \
-                    git config user.email "eli.trust@trustcorp.ai" && \
-                    git add .github/workflows/automation.yml && \
-                    git commit -m "Update automation schedule to ${cronExpression}" || true && \
-                    git push origin main || true
-                `).catch(() => {});
+                try {
+                    await this.executeCommand(`
+                        git config user.name "${{ secrets.USER_NAME }}"
+                        git config user.email "${{ secrets.USER_EMAIL }}"
+                        git add .github/workflows/automation.yml
+                        git commit -m "Update automation schedule to ${cronExpression}" || true
+                        git push origin main || true
+                    `);
+                } catch (error) {
+                    this.log(`⚠️ Could not commit schedule change: ${error.message}`);
+                }
                 
             } catch (error) {
                 this.log(`❌ Failed to update cron schedule: ${error.message}`);
@@ -139,34 +180,41 @@ class DynamicScheduler {
         this.log('🚀 Dynamic Scheduler Started');
         this.log(`📊 Initial delay: ${this.baseDelay} minutes`);
         
-        // Run immediately on start
-        setTimeout(() => {
-            this.triggerAutomation();
-        }, 1000);
+        // Run immediately if no last run exists
+        if (this.lastRunTime === 0) {
+            this.log('⏰ No previous run found, triggering initial run...');
+            setTimeout(() => {
+                this.triggerAutomation();
+            }, 5000);
+        }
         
         // Schedule the next runs using cron
-        // Check every minute if we need to run
         cron.schedule('* * * * *', async () => {
             // Calculate time since last run
-            // This is a simplified check - in production, you'd use a more robust system
-            const lastRunFile = path.join(__dirname, '../.lastrun');
-            
+            const now = Date.now();
             let lastRunTime = 0;
-            if (fs.existsSync(lastRunFile)) {
-                lastRunTime = parseInt(fs.readFileSync(lastRunFile, 'utf8'));
+            
+            if (fs.existsSync(this.lastRunFile)) {
+                try {
+                    lastRunTime = parseInt(fs.readFileSync(this.lastRunFile, 'utf8'));
+                } catch (error) {
+                    lastRunTime = 0;
+                }
             }
             
-            const now = Date.now();
             const minutesSinceLastRun = (now - lastRunTime) / (60 * 1000);
             
-            if (minutesSinceLastRun >= this.currentDelay) {
-                // It's time to run
-                fs.writeFileSync(lastRunFile, now.toString());
+            if (minutesSinceLastRun >= this.currentDelay && lastRunTime > 0) {
+                this.log(`⏰ ${minutesSinceLastRun.toFixed(1)} minutes since last run, triggering...`);
+                await this.triggerAutomation();
+            } else if (lastRunTime === 0) {
+                // If no last run, trigger immediately
                 await this.triggerAutomation();
             }
         });
         
         this.log('✅ Scheduler running...');
+        this.log('💡 Press Ctrl+C to stop');
     }
 }
 
