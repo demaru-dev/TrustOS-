@@ -1,0 +1,44 @@
+name: TrustOS Dynamic Scheduler
+
+on:
+  schedule:
+    # Check every minute for scheduling
+    - cron: '* * * * *'
+  workflow_dispatch:
+
+jobs:
+  schedule:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
+      
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.PAT_TOKEN }}
+        fetch-depth: 0
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Configure Git
+      run: |
+        git config --global user.name "${{ secrets.USER_NAME }}"
+        git config --global user.email "${{ secrets.USER_EMAIL }}"
+        
+    - name: Run Scheduler
+      env:
+        PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+        USER_NAME: ${{ secrets.USER_NAME }}
+        USER_EMAIL: ${{ secrets.USER_EMAIL }}
+      run: |
+        npm run scheduler
