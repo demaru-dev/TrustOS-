@@ -28,17 +28,21 @@ jobs:
         node-version: '18'
         
     - name: Install dependencies
-      run: npm install
-      
+      run: |
+        npm install
+        npm install -g gh
+        
     - name: Configure Git
       run: |
-        git config --global user.name "${{ secrets.USER_NAME }}"
-        git config --global user.email "${{ secrets.USER_EMAIL }}"
+        echo "Configuring git..."
+        git config --global user.name "Eli Trust"
+        git config --global user.email "eli.trust@trustcorp.ai"
+        echo "Git configured successfully"
         
     - name: Run Scheduler
       env:
         PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-        USER_NAME: ${{ secrets.USER_NAME }}
-        USER_EMAIL: ${{ secrets.USER_EMAIL }}
       run: |
+        echo "Starting scheduler..."
+        echo "${{ secrets.PAT_TOKEN }}" | gh auth login --with-token
         npm run scheduler
