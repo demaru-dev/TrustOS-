@@ -2,9 +2,11 @@ name: TrustOS Automation
 
 on:
   schedule:
-    # Run every 2 hours to maintain active presence
-    - cron: '0 */2 * * *'
+    # This will be overridden by the dynamic scheduler
+    - cron: '*/46 * * * *'  # Fallback: runs every 46 minutes
   workflow_dispatch: # Allow manual trigger
+  repository_dispatch:
+    types: [automation-trigger]
 
 jobs:
   automate:
@@ -13,10 +15,14 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+      actions: read
       
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
       
     - name: Setup Node.js
       uses: actions/setup-node@v3
@@ -28,23 +34,23 @@ jobs:
       
     - name: Setup GitHub CLI
       run: |
-        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-        sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-        sudo apt update
-        sudo apt install gh
+        sudo apt-get update
+        sudo apt-get install -y gh
+        
+    - name: Configure Git
+      run: |
+        git config --global user.name "Eli Trust"
+        git config --global user.email "arsenetrams@gmail.com"
         
     - name: Run Automation
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "${{ secrets.GITHUB_TOKEN }}" > token.txt
-        gh auth login --with-token < token.txt
-        rm token.txt
+        # Use GITHUB_TOKEN for authentication
+        echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
         npm run automate
         
     - name: Push Changes
+      if: success()
       run: |
-        git config user.name "Eli Trust"
-        git config user.email "eli.trust@trustcorp.ai"
-        git push origin main
+        git push origin main || echo "No changes to push"
