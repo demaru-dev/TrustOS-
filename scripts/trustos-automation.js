@@ -26,8 +26,8 @@ class TrustOSAutomation {
             process.exit(1);
         }
         
-        // IMPORTANT: Use your actual repository name with the dash
-        this.repoName = 'TrustOS-';  // Note the dash at the end
+        // Use your actual repository name with the dash
+        this.repoName = 'TrustOS-';
         this.repoOwner = 'demaru-dev';
         
         this.features = [
@@ -432,7 +432,8 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
                     ...process.env, 
                     PAT_TOKEN: this.token,
                     GITHUB_TOKEN: this.token
-                }
+                },
+                timeout: 30000 // 30 second timeout
             }, (error, stdout, stderr) => {
                 if (error) {
                     this.log(`❌ Command failed: ${error.message}`);
