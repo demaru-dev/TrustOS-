@@ -26,6 +26,10 @@ class TrustOSAutomation {
             process.exit(1);
         }
         
+        // IMPORTANT: Use your actual repository name with the dash
+        this.repoName = 'TrustOS-';  // Note the dash at the end
+        this.repoOwner = 'demaru-dev';
+        
         this.features = [
             'Entity Evolution Engine',
             'Cross-Model Communication Protocol',
@@ -49,19 +53,6 @@ class TrustOSAutomation {
             'Entity Reputation Score'
         ];
         
-        this.bugTypes = [
-            'Connection timeout in {component}',
-            'Memory leak in {component}',
-            'Race condition in {component}',
-            'Authentication failure in {component}',
-            'Data corruption in {component}',
-            'Performance degradation in {component}',
-            'Security vulnerability in {component}',
-            'Configuration error in {component}',
-            'Resource exhaustion in {component}',
-            'Synchronization issue in {component}'
-        ];
-        
         this.components = [
             'IdentityRegistry',
             'OrchestrationEngine',
@@ -82,7 +73,8 @@ class TrustOSAutomation {
         }
         
         this.log('🚀 TrustOS Automation Engine Initialized');
-        this.log(`📁 Repository: ${this.repoPath}`);
+        this.log(`📁 Repository Path: ${this.repoPath}`);
+        this.log(`📦 Repo: ${this.repoOwner}/${this.repoName}`);
         this.log(`🔑 Token configured: ${this.token ? 'Yes' : 'No'}`);
     }
 
@@ -142,7 +134,7 @@ This will significantly improve the ${this.getRandomItem(['efficiency', 'securit
 ${this.getRandomItem(['High', 'Medium', 'Critical'])}
 
 ## Assignees
-@demaru-dev
+@${this.repoOwner}
 
 ## Labels
 ${this.getRandomItem(['enhancement', 'feature', 'infrastructure', 'core'])}`,
@@ -439,7 +431,7 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
                 env: { 
                     ...process.env, 
                     PAT_TOKEN: this.token,
-                    GITHUB_TOKEN: this.token // GitHub CLI expects this
+                    GITHUB_TOKEN: this.token
                 }
             }, (error, stdout, stderr) => {
                 if (error) {
@@ -459,7 +451,6 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
         const body = this.generateIssueBody();
         
         try {
-            // Escape the body for shell
             const escapedBody = body.replace(/"/g, '\\"').replace(/\n/g, '\\n');
             const escapedTitle = title.replace(/"/g, '\\"');
             
@@ -485,10 +476,8 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
         const prDesc = this.generatePRDescription();
         
         try {
-            // Create branch
             await this.executeCommand(`git checkout -b ${branchName}`);
             
-            // Create file
             const filePath = path.join(this.repoPath, fileName);
             const dirPath = path.dirname(filePath);
             if (!fs.existsSync(dirPath)) {
@@ -496,15 +485,12 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
             }
             fs.writeFileSync(filePath, content);
             
-            // Add and commit
             await this.executeCommand(`git add ${fileName}`);
             const commitMsg = this.createCommitMessage();
             await this.executeCommand(`git commit -m "${commitMsg}"`);
             
-            // Push
             await this.executeCommand(`git push origin ${branchName}`);
             
-            // Create PR
             await this.executeCommand(
                 `gh pr create --title "${prTitle}" --body "${prDesc}" --base main`
             );
@@ -512,7 +498,6 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
             this.prs.push({ title: prTitle, branch: branchName, created: new Date() });
             this.log(`✅ Created PR: ${prTitle}`);
             
-            // Switch back to main
             await this.executeCommand('git checkout main');
             return true;
             
@@ -573,32 +558,27 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
         this.log(`🔄 Running automation cycle #${this.runCount}`);
         
         try {
-            // Update repository
             await this.executeCommand('git fetch origin');
             await this.executeCommand('git checkout main');
             await this.executeCommand('git pull origin main');
             
-            // Create 2-3 issues
             const numIssues = Math.floor(Math.random() * 2) + 2;
             for (let i = 0; i < numIssues; i++) {
                 await this.createIssue();
                 await this.sleep(5000);
             }
             
-            // Create 1-2 PRs
             const numPRs = Math.floor(Math.random() * 2) + 1;
             for (let i = 0; i < numPRs; i++) {
                 await this.createPR();
                 await this.sleep(8000);
             }
             
-            // Close some issues (10-20% chance)
             if (Math.random() < 0.15 && this.issues.length > 0) {
                 await this.closeIssue();
                 await this.sleep(3000);
             }
             
-            // Close some PRs (10-20% chance)
             if (Math.random() < 0.15 && this.prs.length > 0) {
                 await this.closePR();
                 await this.sleep(3000);
@@ -618,15 +598,11 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
 
     async run() {
         this.log('🚀 TrustOS Automation Engine Started');
-        
-        // Run one cycle
         await this.runCycle();
-        
         this.log('✅ Automation run completed');
     }
 }
 
-// Start the automation
 const automation = new TrustOSAutomation();
 automation.run().catch(error => {
     console.error('Fatal error:', error);
