@@ -2,8 +2,8 @@ name: TrustOS Dynamic Scheduler
 
 on:
   schedule:
-    # Check every minute for scheduling
-    - cron: '* * * * *'
+    # Run every 5 minutes to check if we need to trigger
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -28,21 +28,11 @@ jobs:
         node-version: '18'
         
     - name: Install dependencies
-      run: |
-        npm install
-        npm install -g gh
-        
-    - name: Configure Git
-      run: |
-        echo "Configuring git..."
-        git config --global user.name "Eli Trust"
-        git config --global user.email "eli.trust@trustcorp.ai"
-        echo "Git configured successfully"
+      run: npm install
         
     - name: Run Scheduler
       env:
         PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
       run: |
         echo "Starting scheduler..."
-        echo "${{ secrets.PAT_TOKEN }}" | gh auth login --with-token
-        npm run scheduler
+        node scripts/scheduler.js
