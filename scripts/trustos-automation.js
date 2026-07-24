@@ -3,12 +3,12 @@
 /**
  * TrustOS - Automated Development Orchestrator
  * Using GitHub API directly instead of gh CLI
+ * With randomized activity patterns
  */
 
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { exec } = require('child_process');
 
 class TrustOSAutomation {
     constructor() {
@@ -28,6 +28,12 @@ class TrustOSAutomation {
         
         this.repoName = 'TrustOS-';
         this.repoOwner = 'demaru-dev';
+        
+        // Randomized activity ranges
+        this.minIssuesPerRun = 1;
+        this.maxIssuesPerRun = 4;
+        this.minPRsPerRun = 1;
+        this.maxPRsPerRun = 3;
         
         this.features = [
             'Entity Evolution Engine',
@@ -74,6 +80,7 @@ class TrustOSAutomation {
         this.log('🚀 TrustOS Automation Engine Initialized');
         this.log(`📦 Repo: ${this.repoOwner}/${this.repoName}`);
         this.log(`🔑 Token configured: ${this.token ? 'Yes' : 'No'}`);
+        this.log(`📊 Random activity: ${this.minIssuesPerRun}-${this.maxIssuesPerRun} issues, ${this.minPRsPerRun}-${this.maxPRsPerRun} PRs per run`);
     }
 
     log(message) {
@@ -89,6 +96,10 @@ class TrustOSAutomation {
 
     getRandomItem(array) {
         return array[Math.floor(Math.random() * array.length)];
+    }
+
+    getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
     generateIssueTitle() {
@@ -197,7 +208,6 @@ ${this.getRandomItem(['None', 'Minor configuration changes required', 'Backward 
         `;
     }
 
-    // Direct GitHub API call instead of gh CLI
     makeGitHubRequest(method, endpoint, data = null) {
         return new Promise((resolve, reject) => {
             const options = {
@@ -218,11 +228,11 @@ ${this.getRandomItem(['None', 'Minor configuration changes required', 'Backward 
                 });
                 res.on('end', () => {
                     try {
-                        const parsed = JSON.parse(responseData);
                         if (res.statusCode >= 200 && res.statusCode < 300) {
+                            const parsed = JSON.parse(responseData);
                             resolve(parsed);
                         } else {
-                            reject(new Error(`HTTP ${res.statusCode}: ${JSON.stringify(parsed)}`));
+                            reject(new Error(`HTTP ${res.statusCode}: ${responseData}`));
                         }
                     } catch (e) {
                         reject(new Error(`Failed to parse response: ${responseData}`));
@@ -261,7 +271,6 @@ ${this.getRandomItem(['None', 'Minor configuration changes required', 'Backward 
             });
             
             this.log(`✅ Created issue #${result.number}: ${result.title}`);
-            this.log(`   URL: ${result.html_url}`);
             return true;
         } catch (error) {
             this.log(`❌ Failed to create issue: ${error.message}`);
@@ -317,7 +326,6 @@ ${this.getRandomItem(['None', 'Minor configuration changes required', 'Backward 
             });
             
             this.log(`✅ Created PR #${result.number}: ${result.title}`);
-            this.log(`   URL: ${result.html_url}`);
             return true;
         } catch (error) {
             this.log(`❌ Failed to create PR: ${error.message}`);
@@ -374,6 +382,47 @@ func NewSecurityVault() *SecurityVault {
 func (v *SecurityVault) RegisterEntity(id string) error {
     v.entities[id] = "registered"
     return nil
+}`,
+            'DataPipeline.ts': `export class DataPipeline {
+    private pipeline: any[];
+    
+    constructor() {
+        this.pipeline = [];
+    }
+    
+    addStage(stage: any): void {
+        this.pipeline.push(stage);
+    }
+    
+    async process(data: any): Promise<any> {
+        let result = data;
+        for (const stage of this.pipeline) {
+            result = await stage.process(result);
+        }
+        return result;
+    }
+}`,
+            'APIGateway.js': `class APIGateway {
+    constructor() {
+        this.routes = new Map();
+        this.middleware = [];
+    }
+    
+    addRoute(path, handler) {
+        this.routes.set(path, handler);
+    }
+    
+    use(middleware) {
+        this.middleware.push(middleware);
+    }
+    
+    async handle(request) {
+        const handler = this.routes.get(request.path);
+        if (handler) {
+            return await handler(request);
+        }
+        return { status: 404, body: 'Not Found' };
+    }
 }`
         };
         
@@ -420,26 +469,27 @@ func (v *SecurityVault) RegisterEntity(id string) error {
         this.runCount++;
         this.log(`🔄 Running automation cycle #${this.runCount}`);
         
-        // Create 2-3 issues
-        const numIssues = Math.floor(Math.random() * 2) + 2;
+        // Randomize number of issues (1-4)
+        const numIssues = this.getRandomInt(this.minIssuesPerRun, this.maxIssuesPerRun);
+        this.log(`📝 Creating ${numIssues} issues...`);
         for (let i = 0; i < numIssues; i++) {
             await this.createIssue();
-            await this.sleep(2000);
+            await this.sleep(this.getRandomInt(1000, 3000));
         }
         
-        // Create 1-2 PRs
-        const numPRs = Math.floor(Math.random() * 2) + 1;
+        // Randomize number of PRs (1-3)
+        const numPRs = this.getRandomInt(this.minPRsPerRun, this.maxPRsPerRun);
+        this.log(`📝 Creating ${numPRs} PRs...`);
         for (let i = 0; i < numPRs; i++) {
             await this.createPR();
-            await this.sleep(3000);
+            await this.sleep(this.getRandomInt(2000, 4000));
         }
         
-        // Close some issues (30% chance)
+        // Random chance to close items (20-40% chance)
         if (Math.random() < 0.3 && this.createdIssues.length > 0) {
             await this.closeIssue();
         }
         
-        // Close some PRs (30% chance)
         if (Math.random() < 0.3 && this.createdPRs.length > 0) {
             await this.closePR();
         }
