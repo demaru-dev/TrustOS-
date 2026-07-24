@@ -2,7 +2,7 @@
 
 /**
  * Dynamic Scheduler for TrustOS Automation
- * Uses GitHub API directly to trigger workflows
+ * With randomized delays to make activity patterns organic
  */
 
 const https = require('https');
@@ -12,8 +12,6 @@ const path = require('path');
 class DynamicScheduler {
     constructor() {
         this.runCount = 0;
-        this.baseDelay = 45; // minutes
-        this.currentDelay = this.baseDelay;
         this.logFile = path.join(__dirname, '../scheduler.log');
         this.lastRunFile = path.join(__dirname, '../.lastrun');
         this.isRunning = false;
@@ -21,6 +19,10 @@ class DynamicScheduler {
         // Repository info
         this.repoOwner = 'demaru-dev';
         this.repoName = 'TrustOS-';
+        
+        // Randomization settings
+        this.minDelay = 30; // Minimum minutes between runs
+        this.maxDelay = 90; // Maximum minutes between runs
         
         // Get token from environment
         this.token = process.env.PAT_TOKEN;
@@ -39,18 +41,23 @@ class DynamicScheduler {
         // Read last run time
         if (fs.existsSync(this.lastRunFile)) {
             try {
-                this.lastRunTime = parseInt(fs.readFileSync(this.lastRunFile, 'utf8'));
+                const data = JSON.parse(fs.readFileSync(this.lastRunFile, 'utf8'));
+                this.lastRunTime = data.timestamp || 0;
+                this.runCount = data.runCount || 0;
                 this.log(`📊 Last run was at: ${new Date(this.lastRunTime).toISOString()}`);
+                this.log(`📊 Total runs so far: ${this.runCount}`);
             } catch (error) {
                 this.lastRunTime = 0;
+                this.runCount = 0;
             }
         } else {
             this.lastRunTime = 0;
+            this.runCount = 0;
         }
         
         this.log('🚀 Dynamic Scheduler Initialized');
         this.log(`📦 Repo: ${this.repoOwner}/${this.repoName}`);
-        this.log(`📊 Initial delay: ${this.baseDelay} minutes`);
+        this.log(`⏰ Random delay range: ${this.minDelay} - ${this.maxDelay} minutes`);
         this.log(`🔑 Token configured: ${this.token ? 'Yes' : 'No'}`);
     }
 
@@ -63,6 +70,12 @@ class DynamicScheduler {
         } catch (error) {
             // Silent fail for logging
         }
+    }
+
+    getRandomDelay() {
+        // Generate random delay between min and max
+        const delay = Math.floor(Math.random() * (this.maxDelay - this.minDelay + 1)) + this.minDelay;
+        return delay;
     }
 
     makeGitHubRequest(method, endpoint, data = null) {
@@ -127,16 +140,20 @@ class DynamicScheduler {
                 { ref: 'main' }
             );
             
+            // Calculate next random delay
+            const nextDelay = this.getRandomDelay();
+            
             this.log(`✅ Successfully triggered automation run #${this.runCount}`);
+            this.log(`⏰ Next run will be in ${nextDelay} minutes (randomized)`);
             
-            // Update the schedule for next run
-            this.currentDelay = this.baseDelay + this.runCount;
-            this.log(`⏰ Next run scheduled in ${this.currentDelay} minutes`);
+            // Save the last run time and count
+            const data = {
+                timestamp: Date.now(),
+                runCount: this.runCount
+            };
+            fs.writeFileSync(this.lastRunFile, JSON.stringify(data));
             
-            // Save the last run time
-            fs.writeFileSync(this.lastRunFile, Date.now().toString());
-            
-            this.log(`📊 Total runs triggered: ${this.runCount}`);
+            this.log(`📊 Total runs: ${this.runCount}`);
             
         } catch (error) {
             this.log(`❌ Failed to trigger automation: ${error.message}`);
@@ -147,11 +164,11 @@ class DynamicScheduler {
 
     start() {
         this.log('🚀 Dynamic Scheduler Started');
-        this.log(`📊 Initial delay: ${this.baseDelay} minutes`);
+        this.log(`⏰ Random delay range: ${this.minDelay} - ${this.maxDelay} minutes`);
         
         // Check if we should run immediately
         if (this.lastRunTime === 0) {
-            this.log('⏰ No previous run found, triggering initial run...');
+            this.log('⏰ No previous run found, triggering initial run in 5 seconds...');
             setTimeout(() => {
                 this.triggerAutomation();
             }, 5000);
@@ -160,14 +177,24 @@ class DynamicScheduler {
             const now = Date.now();
             const minutesSinceLastRun = (now - this.lastRunTime) / (60 * 1000);
             
-            if (minutesSinceLastRun >= this.currentDelay) {
+            // Get the delay that was set for this run
+            let expectedDelay = this.minDelay;
+            if (fs.existsSync(path.join(__dirname, '../.nextdelay'))) {
+                try {
+                    expectedDelay = parseInt(fs.readFileSync(path.join(__dirname, '../.nextdelay'), 'utf8'));
+                } catch (error) {
+                    expectedDelay = this.minDelay;
+                }
+            }
+            
+            if (minutesSinceLastRun >= expectedDelay) {
                 this.log(`⏰ ${minutesSinceLastRun.toFixed(1)} minutes since last run, triggering...`);
                 setTimeout(() => {
                     this.triggerAutomation();
                 }, 5000);
             } else {
-                const waitMinutes = this.currentDelay - minutesSinceLastRun;
-                this.log(`⏰ Next run in ${waitMinutes.toFixed(1)} minutes`);
+                const waitMinutes = expectedDelay - minutesSinceLastRun;
+                this.log(`⏰ Next run in approximately ${waitMinutes.toFixed(1)} minutes`);
             }
         }
         
@@ -175,18 +202,29 @@ class DynamicScheduler {
         setInterval(async () => {
             const now = Date.now();
             let lastRunTime = 0;
+            let expectedDelay = this.minDelay;
             
             if (fs.existsSync(this.lastRunFile)) {
                 try {
-                    lastRunTime = parseInt(fs.readFileSync(this.lastRunFile, 'utf8'));
+                    const data = JSON.parse(fs.readFileSync(this.lastRunFile, 'utf8'));
+                    lastRunTime = data.timestamp || 0;
                 } catch (error) {
                     lastRunTime = 0;
                 }
             }
             
+            // Read the expected delay for this run
+            if (fs.existsSync(path.join(__dirname, '../.nextdelay'))) {
+                try {
+                    expectedDelay = parseInt(fs.readFileSync(path.join(__dirname, '../.nextdelay'), 'utf8'));
+                } catch (error) {
+                    expectedDelay = this.minDelay;
+                }
+            }
+            
             const minutesSinceLastRun = (now - lastRunTime) / (60 * 1000);
             
-            if (minutesSinceLastRun >= this.currentDelay && lastRunTime > 0) {
+            if (minutesSinceLastRun >= expectedDelay && lastRunTime > 0) {
                 this.log(`⏰ ${minutesSinceLastRun.toFixed(1)} minutes since last run, triggering...`);
                 await this.triggerAutomation();
             }
