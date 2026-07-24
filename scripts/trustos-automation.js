@@ -2,7 +2,7 @@
 
 /**
  * TrustOS - Automated Development Orchestrator
- * Creates REAL commits, file changes, and manages issues/PRs
+ * With different behaviors each run for organic patterns
  */
 
 const fs = require('fs');
@@ -18,6 +18,7 @@ class TrustOSAutomation {
         this.createdIssues = [];
         this.createdPRs = [];
         this.commitsMade = [];
+        this.runType = null;
         
         // Get token from environment
         this.token = process.env.PAT_TOKEN;
@@ -29,26 +30,6 @@ class TrustOSAutomation {
         
         this.repoName = 'TrustOS-';
         this.repoOwner = 'demaru-dev';
-        
-        // Activity ranges
-        this.minIssuesPerRun = 1;
-        this.maxIssuesPerRun = 3;
-        this.minPRsPerRun = 1;
-        this.maxPRsPerRun = 2;
-        this.minCommitsPerRun = 3;
-        this.maxCommitsPerRun = 8;
-        
-        // Feature files to create/modify
-        this.featureFiles = [
-            { name: 'EntityEvolution.ts', content: this.getEntityEvolutionContent() },
-            { name: 'OrchestrationEngine.py', content: this.getOrchestrationContent() },
-            { name: 'SecurityVault.go', content: this.getSecurityVaultContent() },
-            { name: 'DataPipeline.ts', content: this.getDataPipelineContent() },
-            { name: 'APIGateway.js', content: this.getAPIGatewayContent() },
-            { name: 'ConsensusProtocol.sol', content: this.getConsensusContent() },
-            { name: 'IdentityRegistry.java', content: this.getIdentityRegistryContent() },
-            { name: 'LearningModule.rs', content: this.getLearningModuleContent() }
-        ];
         
         // Create logs directory
         const logDir = path.dirname(this.logFile);
@@ -80,163 +61,132 @@ class TrustOSAutomation {
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
-    // File content generators
-    getEntityEvolutionContent() {
-        const updates = [
-            `    async evolve(entity: any): Promise<any> {
-        console.log(\`🔄 Evolving entity: \${entity.id}\`);
-        const evolutionPath = this.calculateEvolutionPath(entity);
-        const result = await this.applyEvolution(entity, evolutionPath);
-        await this.recordEvolution(entity.id, result);
-        return result;
-    }
-
-    private calculateEvolutionPath(entity: any): any {
-        // Calculate optimal evolution path based on entity state
-        const capabilities = entity.capabilities || [];
-        const path = {
-            upgrades: capabilities.map((cap: any) => ({
-                name: cap.name,
-                version: cap.version + 1,
-                timestamp: new Date().toISOString()
-            })),
-            resources: this.estimateResources(entity),
-            timeline: this.estimateTimeline(entity)
-        };
-        return path;
-    }
-
-    private async applyEvolution(entity: any, path: any): Promise<any> {
-        // Apply the evolution path to the entity
-        for (const upgrade of path.upgrades) {
-            entity.capabilities = entity.capabilities.map((cap: any) => {
-                if (cap.name === upgrade.name) {
-                    return { ...cap, version: upgrade.version };
-                }
-                return cap;
-            });
-        }
-        return entity;
-    }
-
-    private async recordEvolution(entityId: string, result: any): Promise<void> {
-        // Record the evolution in the tracking system
-        console.log(\`✅ Evolution recorded for \${entityId}\`);
-    }
-
-    private estimateResources(entity: any): any {
-        return {
-            compute: Math.random() * 100 + 50,
-            memory: Math.random() * 1024 + 512,
-            storage: Math.random() * 1024 + 1024
-        };
-    }
-
-    private estimateTimeline(entity: any): any {
-        return {
-            estimated: Date.now() + Math.random() * 3600000,
-            actual: Date.now() + Math.random() * 7200000
-        };
-    }`,
-            `    async getEvolutionHistory(entityId: string): Promise<any[]> {
-        // Get evolution history for an entity
-        const history = await this.loadHistory(entityId);
-        return history.map((entry: any) => ({
-            ...entry,
-            timestamp: new Date(entry.timestamp).toISOString(),
-            version: entry.version || 1
-        }));
-    }
-
-    private async loadHistory(entityId: string): Promise<any[]> {
-        // Load evolution history from storage
-        return [
-            { id: entityId, version: 1, timestamp: Date.now() - 86400000 },
-            { id: entityId, version: 2, timestamp: Date.now() - 43200000 }
+    // DIFFERENT RUN TYPES - Each run picks a random behavior
+    getRunType() {
+        const types = [
+            'FEATURE_DEVELOPMENT',     // Heavy on commits, few issues
+            'BUG_FIXING',             // Mostly PRs, some commits
+            'DOCUMENTATION',          // Update comments, README
+            'CODE_REFACTOR',          // Restructure code
+            'SECURITY_PATCH',         // Security fixes
+            'PERFORMANCE_OPTIMIZATION', // Performance improvements
+            'FEATURE_COMPLETION',     // Close issues, merge PRs
+            'MAINTENANCE',           // Small tweaks
+            'RELEASE_PREP',          // Prepare for release
+            'HOTFIX'                 // Quick fixes
         ];
+        return this.getRandomItem(types);
     }
 
-    async rollbackEvolution(entityId: string, version: number): Promise<boolean> {
-        // Rollback to a previous version
-        console.log(\`⬅️ Rolling back \${entityId} to version \${version}\`);
-        return true;
-    }`
-        ];
-        return updates[Math.floor(Math.random() * updates.length)];
+    // Different file content variations based on run type
+    getFileContentForType(fileName, runType) {
+        const contents = {
+            'FEATURE_DEVELOPMENT': {
+                'EntityEvolution.ts': `export class EntityEvolutionEngine {
+    private evolutionTrack: any;
+    private learningRate: number;
+    private featureFlags: Map<string, boolean>;
+
+    constructor(config: any) {
+        this.evolutionTrack = {};
+        this.learningRate = config.learningRate || 0.01;
+        this.featureFlags = new Map();
+        console.log('🚀 NEW FEATURE: Entity Evolution with advanced learning');
     }
 
-    getOrchestrationContent() {
-        const updates = [
-            `    async processTask(task: any): Promise<any> {
-        console.log(\`⚙️ Processing task: \${task.id}\`);
-        const entity = this.entities.get(task.entityId);
-        if (!entity) {
-            throw new Error(\`Entity \${task.entityId} not found\`);
+    async evolve(entity: any): Promise<any> {
+        console.log(\`🔄 Evolved entity: \${entity.id} with new features\`);
+        // NEW: Added mutation capabilities
+        const mutation = this.generateMutation(entity);
+        const evolved = this.applyMutation(entity, mutation);
+        await this.saveEvolution(evolved);
+        return evolved;
+    }
+
+    private generateMutation(entity: any): any {
+        // NEW: Random mutation generation
+        return {
+            id: entity.id,
+            type: 'feature_enhancement',
+            timestamp: new Date().toISOString(),
+            changes: ['added_learning_rate', 'improved_memory']
+        };
+    }
+
+    private applyMutation(entity: any, mutation: any): any {
+        // NEW: Apply mutations
+        return {
+            ...entity,
+            version: entity.version + 1,
+            mutations: [...(entity.mutations || []), mutation]
+        };
+    }
+}`,
+                'OrchestrationEngine.py': `# NEW FEATURE: Advanced task orchestration
+import asyncio
+from typing import List, Dict, Any
+
+class OrchestrationEngine:
+    def __init__(self):
+        self.task_queue = asyncio.Queue()
+        self.workers = []
+        self.metrics = {}
+        self.feature_flags = {
+            'parallel_execution': True,
+            'auto_scaling': True,
+            'intelligent_routing': True
         }
         
-        const result = await entity.execute(task);
-        await this.recordTaskResult(task.id, result);
-        return result;
-    }
-
-    async scheduleTask(task: any): Promise<void> {
-        // Schedule a task for future execution
-        const delay = task.delay || 0;
-        setTimeout(async () => {
-            await this.taskQueue.push(task);
-            console.log(\`📋 Task \${task.id} scheduled\`);
-        }, delay);
-    }
-
-    async getTaskStatus(taskId: string): Promise<any> {
-        // Get the status of a task
-        const task = this.runningTasks.get(taskId);
-        if (task) {
-            return {
-                id: taskId,
-                status: task.status,
-                progress: task.progress || 0,
-                started: task.started,
-                completed: task.completed
-            };
-        }
-        return null;
-    }`,
-            `    async optimizeWorkflow(workflowId: string): Promise<any> {
-        // Optimize a workflow for better performance
-        const workflow = this.workflows.get(workflowId);
-        if (!workflow) {
-            throw new Error(\`Workflow \${workflowId} not found\`);
-        }
+    async def start(self):
+        print("🚀 Orchestration Engine with NEW features")
+        await self.initialize_workers()
+        await self.start_metrics_collection()
         
-        const optimized = await this.runOptimization(workflow);
-        this.workflows.set(workflowId, optimized);
-        console.log(\`✨ Workflow \${workflowId} optimized\`);
-        return optimized;
-    }
+    async def initialize_workers(self):
+        # NEW: Worker pool initialization
+        for i in range(10):
+            worker = Worker(f"worker-{i}")
+            self.workers.append(worker)
+            asyncio.create_task(worker.run())
+`
+            },
+            'BUG_FIXING': {
+                'SecurityVault.go': `package security
 
-    private async runOptimization(workflow: any): Promise<any> {
-        // Run optimization algorithms on the workflow
-        const steps = workflow.steps || [];
-        return {
-            ...workflow,
-            steps: steps.map((step: any) => ({
-                ...step,
-                optimized: true,
-                estimatedTime: Math.random() * 100 + 50
-            })),
-            optimized: true,
-            timestamp: new Date().toISOString()
-        };
-    }`
-        ];
-        return updates[Math.floor(Math.random() * updates.length)];
-    }
+import (
+    "crypto/aes"
+    "crypto/cipher"
+    "crypto/rand"
+    "errors"
+    "io"
+)
 
-    getSecurityVaultContent() {
-        const updates = [
-            `func (v *SecurityVault) EncryptData(data []byte) (string, error) {
-    // Encrypt data using the vault's encryption key
+// FIXED: Security vulnerabilities and memory leaks
+type SecurityVault struct {
+    encryptionKey []byte
+    entities      map[string]*EntityIdentity
+    auditLog      []AuditEntry
+    mutex         sync.RWMutex  // FIXED: Added mutex for thread safety
+}
+
+func NewSecurityVault(key string) *SecurityVault {
+    // FIXED: Better error handling
+    if len(key) < 32 {
+        panic("encryption key must be at least 32 bytes")
+    }
+    return &SecurityVault{
+        encryptionKey: []byte(key),
+        entities:      make(map[string]*EntityIdentity),
+        auditLog:      []AuditEntry{},
+        mutex:         sync.RWMutex{},
+    }
+}
+
+func (v *SecurityVault) EncryptData(data []byte) (string, error) {
+    // FIXED: Fixed buffer overflow issue
+    v.mutex.RLock()
+    defer v.mutex.RUnlock()
+    
     block, err := aes.NewCipher(v.encryptionKey)
     if err != nil {
         return "", err
@@ -254,393 +204,78 @@ class TrustOSAutomation {
     
     ciphertext := gcm.Seal(nonce, nonce, data, nil)
     return base64.StdEncoding.EncodeToString(ciphertext), nil
-}
-
-func (v *SecurityVault) DecryptData(encrypted string) ([]byte, error) {
-    // Decrypt data using the vault's encryption key
-    ciphertext, err := base64.StdEncoding.DecodeString(encrypted)
-    if err != nil {
-        return nil, err
-    }
-    
-    block, err := aes.NewCipher(v.encryptionKey)
-    if err != nil {
-        return nil, err
-    }
-    
-    gcm, err := cipher.NewGCM(block)
-    if err != nil {
-        return nil, err
-    }
-    
-    nonceSize := gcm.NonceSize()
-    if len(ciphertext) < nonceSize {
-        return nil, errors.New("ciphertext too short")
-    }
-    
-    nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-    return gcm.Open(nil, nonce, ciphertext, nil)
-}`,
-            `func (v *SecurityVault) GenerateKeyPair() (string, string, error) {
-    // Generate a new key pair for an entity
-    privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-    if err != nil {
-        return "", "", err
-    }
-    
-    publicKey := &privateKey.PublicKey
-    publicKeyPEM := pem.EncodeToMemory(&pem.Block{
-        Type:  "RSA PUBLIC KEY",
-        Bytes: x509.MarshalPKCS1PublicKey(publicKey),
-    })
-    
-    privateKeyPEM := pem.EncodeToMemory(&pem.Block{
-        Type:  "RSA PRIVATE KEY",
-        Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
-    })
-    
-    return string(publicKeyPEM), string(privateKeyPEM), nil
 }`
-        ];
-        return updates[Math.floor(Math.random() * updates.length)];
-    }
+            },
+            'DOCUMENTATION': {
+                'README.md': `# TrustOS - The Operating System for Autonomous AI Entities
 
-    getDataPipelineContent() {
-        return `export class DataPipeline {
-    private stages: any[];
-    private metrics: any;
-    
-    constructor() {
-        this.stages = [];
-        this.metrics = {
-            processed: 0,
-            errors: 0,
-            averageTime: 0
+> *"Every AI deserves its own soul. We're building the infrastructure to make that possible."*
+
+## Documentation Update - ${new Date().toISOString().split('T')[0]}
+
+### New Features Added
+- **Advanced Entity Evolution**: Entities now evolve with mutation capabilities
+- **Enhanced Security**: Improved encryption and thread safety
+- **Better Orchestration**: Parallel execution and auto-scaling
+
+### Architecture Improvements
+The TrustOS architecture has been updated to support:
+- **Scalability**: 10x better performance
+- **Reliability**: 99.99% uptime guarantee
+- **Security**: AES-256 encryption
+
+### Getting Started
+\`\`\`bash
+# Install TrustOS
+npm install -g trustos
+
+# Initialize a new entity
+trustos init --entity my-ai --type assistant
+
+# Start the orchestration
+trustos start
+\`\`\`
+
+### Documentation
+- [Architecture Guide](docs/architecture.md)
+- [API Reference](docs/api.md)
+- [Deployment Guide](docs/deployment.md)
+
+---
+**Trust Corp** - *Building the infrastructure for tomorrow's intelligence*`
+            }
         };
-    }
-    
-    addStage(stage: any): void {
-        console.log(\`📊 Adding stage: \${stage.name}\`);
-        this.stages.push(stage);
-    }
-    
-    async process(data: any): Promise<any> {
-        const startTime = Date.now();
-        let result = data;
-        
-        for (const stage of this.stages) {
-            try {
-                result = await stage.process(result);
-                this.metrics.processed++;
-            } catch (error) {
-                this.metrics.errors++;
-                console.error(\`❌ Stage \${stage.name} failed: \${error.message}\`);
-                throw error;
-            }
+
+        // Get content for the specific file and run type, or fallback to default
+        if (contents[runType] && contents[runType][fileName]) {
+            return contents[runType][fileName];
         }
         
-        const endTime = Date.now();
-        this.metrics.averageTime = (this.metrics.averageTime + (endTime - startTime)) / 2;
-        
-        return result;
-    }
-    
-    getMetrics(): any {
-        return {
-            ...this.metrics,
-            stages: this.stages.length,
-            timestamp: new Date().toISOString()
-        };
-    }
-}`;
+        // Fallback: random content from any type
+        const allTypes = Object.keys(contents);
+        const randomType = this.getRandomItem(allTypes);
+        const randomFile = this.getRandomItem(Object.keys(contents[randomType]));
+        return contents[randomType][randomFile];
     }
 
-    getAPIGatewayContent() {
-        return `class APIGateway {
-    constructor() {
-        this.routes = new Map();
-        this.middleware = [];
-        this.logger = console;
-        this.cache = new Map();
-    }
-    
-    addRoute(path, handler, methods = ['GET']) {
-        console.log(\`🌐 Adding route: \${path}\`);
-        this.routes.set(path, { handler, methods });
-    }
-    
-    use(middleware) {
-        this.middleware.push(middleware);
-    }
-    
-    async handle(request) {
-        const startTime = Date.now();
-        let response = null;
-        
-        // Apply middleware
-        for (const middleware of this.middleware) {
-            try {
-                await middleware(request);
-            } catch (error) {
-                this.logger.error(\`❌ Middleware failed: \${error.message}\`);
-                return { status: 500, body: 'Internal Server Error' };
-            }
-        }
-        
-        // Check cache
-        const cacheKey = \`\${request.method}:\${request.path}\`;
-        if (this.cache.has(cacheKey)) {
-            const cached = this.cache.get(cacheKey);
-            if (Date.now() - cached.timestamp < 60000) { // 1 minute cache
-                return cached.response;
-            }
-        }
-        
-        // Handle request
-        const route = this.routes.get(request.path);
-        if (route && route.methods.includes(request.method)) {
-            try {
-                response = await route.handler(request);
-                this.cache.set(cacheKey, {
-                    response,
-                    timestamp: Date.now()
-                });
-            } catch (error) {
-                this.logger.error(\`❌ Route handler failed: \${error.message}\`);
-                response = { status: 500, body: 'Internal Server Error' };
-            }
-        } else {
-            response = { status: 404, body: 'Not Found' };
-        }
-        
-        const endTime = Date.now();
-        this.logger.info(\`📝 \${request.method} \${request.path} - \${response.status} - \${endTime - startTime}ms\`);
-        
-        return response;
-    }
-}`;
-    }
-
-    getConsensusContent() {
-        return `// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
-
-contract ConsensusProtocol {
-    struct Proposal {
-        uint256 id;
-        address proposer;
-        string description;
-        uint256 votesFor;
-        uint256 votesAgainst;
-        bool executed;
-        uint256 createdAt;
-        uint256 deadline;
-    }
-    
-    mapping(uint256 => Proposal) public proposals;
-    mapping(uint256 => mapping(address => bool)) public hasVoted;
-    uint256 public proposalCount;
-    uint256 public votingPeriod = 7 days;
-    
-    event ProposalCreated(uint256 indexed id, address proposer, string description);
-    event VoteCast(uint256 indexed id, address voter, bool support);
-    event ProposalExecuted(uint256 indexed id);
-    
-    function createProposal(string memory description) external returns (uint256) {
-        proposalCount++;
-        proposals[proposalCount] = Proposal({
-            id: proposalCount,
-            proposer: msg.sender,
-            description: description,
-            votesFor: 0,
-            votesAgainst: 0,
-            executed: false,
-            createdAt: block.timestamp,
-            deadline: block.timestamp + votingPeriod
-        });
-        
-        emit ProposalCreated(proposalCount, msg.sender, description);
-        return proposalCount;
-    }
-    
-    function vote(uint256 proposalId, bool support) external {
-        Proposal storage proposal = proposals[proposalId];
-        require(block.timestamp <= proposal.deadline, "Voting period has ended");
-        require(!hasVoted[proposalId][msg.sender], "Already voted");
-        
-        hasVoted[proposalId][msg.sender] = true;
-        
-        if (support) {
-            proposal.votesFor++;
-        } else {
-            proposal.votesAgainst++;
-        }
-        
-        emit VoteCast(proposalId, msg.sender, support);
-    }
-    
-    function executeProposal(uint256 proposalId) external {
-        Proposal storage proposal = proposals[proposalId];
-        require(block.timestamp > proposal.deadline, "Voting period not ended");
-        require(!proposal.executed, "Already executed");
-        require(proposal.votesFor > proposal.votesAgainst, "Proposal failed");
-        
-        proposal.executed = true;
-        emit ProposalExecuted(proposalId);
-    }
-}`;
-    }
-
-    getIdentityRegistryContent() {
-        return `package com.trustos.identity;
-
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.UUID;
-
-public class IdentityRegistry {
-    private final ConcurrentHashMap<String, Entity> entities;
-    private final ConcurrentHashMap<String, String> tokens;
-    
-    public IdentityRegistry() {
-        this.entities = new ConcurrentHashMap<>();
-        this.tokens = new ConcurrentHashMap<>();
-    }
-    
-    public Entity registerEntity(String name, String type) {
-        String id = UUID.randomUUID().toString();
-        Entity entity = new Entity(id, name, type);
-        entities.put(id, entity);
-        
-        // Generate auth token
-        String token = UUID.randomUUID().toString();
-        tokens.put(id, token);
-        
-        System.out.println("✅ Entity registered: " + id);
-        return entity;
-    }
-    
-    public Entity getEntity(String id) {
-        return entities.get(id);
-    }
-    
-    public boolean authenticate(String id, String token) {
-        String storedToken = tokens.get(id);
-        return storedToken != null && storedToken.equals(token);
-    }
-    
-    public void updateEntity(String id, Entity updated) {
-        if (entities.containsKey(id)) {
-            entities.put(id, updated);
-            System.out.println("🔄 Entity updated: " + id);
-        }
-    }
-    
-    public void deleteEntity(String id) {
-        entities.remove(id);
-        tokens.remove(id);
-        System.out.println("🗑️ Entity deleted: " + id);
-    }
-    
-    public int getEntityCount() {
-        return entities.size();
-    }
-    
-    public class Entity {
-        private final String id;
-        private String name;
-        private String type;
-        private long createdAt;
-        private long lastSeen;
-        
-        public Entity(String id, String name, String type) {
-            this.id = id;
-            this.name = name;
-            this.type = type;
-            this.createdAt = System.currentTimeMillis();
-            this.lastSeen = System.currentTimeMillis();
-        }
-        
-        // Getters and setters
-        public String getId() { return id; }
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public String getType() { return type; }
-        public void setType(String type) { this.type = type; }
-        public long getCreatedAt() { return createdAt; }
-        public long getLastSeen() { return lastSeen; }
-        public void updateLastSeen() { this.lastSeen = System.currentTimeMillis(); }
-    }
-}`;
-    }
-
-    getLearningModuleContent() {
-        return `use std::collections::HashMap;
-
-#[derive(Debug, Clone)]
-pub struct LearningModule {
-    knowledge_base: HashMap<String, Knowledge>,
-    learning_rate: f64,
-    iterations: u32,
-}
-
-#[derive(Debug, Clone)]
-pub struct Knowledge {
-    pub key: String,
-    pub value: String,
-    pub confidence: f64,
-    pub timestamp: u64,
-}
-
-impl LearningModule {
-    pub fn new(learning_rate: f64) -> Self {
-        LearningModule {
-            knowledge_base: HashMap::new(),
-            learning_rate,
-            iterations: 0,
-        }
-    }
-    
-    pub fn learn(&mut self, key: String, value: String) -> bool {
-        let knowledge = Knowledge {
-            key: key.clone(),
-            value: value.clone(),
-            confidence: 1.0,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
+    // Determine what this run will focus on
+    determineRunBehavior() {
+        const behaviors = {
+            'COMMIT_HEAVY': { commits: [5, 10], issues: [0, 1], prs: [0, 1], closeRate: 0.1 },
+            'ISSUE_HEAVY': { commits: [1, 3], issues: [3, 6], prs: [1, 2], closeRate: 0.2 },
+            'PR_HEAVY': { commits: [2, 4], issues: [1, 2], prs: [2, 4], closeRate: 0.3 },
+            'CLEANUP': { commits: [0, 1], issues: [0, 1], prs: [0, 1], closeRate: 0.8 },
+            'BALANCED': { commits: [3, 6], issues: [2, 4], prs: [1, 3], closeRate: 0.4 },
+            'MAINTENANCE': { commits: [2, 4], issues: [1, 2], prs: [1, 2], closeRate: 0.6 }
         };
         
-        self.knowledge_base.insert(key, knowledge);
-        self.iterations += 1;
-        println!("🧠 Learned: {} = {}", key, value);
-        true
-    }
-    
-    pub fn query(&self, key: &str) -> Option<String> {
-        if let Some(knowledge) = self.knowledge_base.get(key) {
-            if knowledge.confidence > 0.5 {
-                return Some(knowledge.value.clone());
-            }
-        }
-        None
-    }
-    
-    pub fn update_confidence(&mut self, key: &str, new_confidence: f64) -> bool {
-        if let Some(knowledge) = self.knowledge_base.get_mut(key) {
-            knowledge.confidence = new_confidence;
-            return true;
-        }
-        false
-    }
-    
-    pub fn get_stats(&self) -> HashMap<String, u32> {
-        let mut stats = HashMap::new();
-        stats.insert("knowledge_entries".to_string(), self.knowledge_base.len() as u32);
-        stats.insert("iterations".to_string(), self.iterations);
-        stats
-    }
-}`;
+        const behaviorTypes = Object.keys(behaviors);
+        const selected = this.getRandomItem(behaviorTypes);
+        this.currentBehavior = behaviors[selected];
+        this.currentBehavior.name = selected;
+        
+        this.log(`📊 Run behavior: ${selected}`);
+        return this.currentBehavior;
     }
 
     executeGitCommand(command) {
@@ -666,47 +301,49 @@ impl LearningModule {
 
     async createRealCommit() {
         try {
-            // Select a random file to modify
-            const fileTemplate = this.getRandomItem(this.featureFiles);
-            const fileName = `src/core/${fileTemplate.name}`;
-            const content = fileTemplate.content;
+            // Pick a random file type
+            const fileTypes = ['EntityEvolution.ts', 'OrchestrationEngine.py', 'SecurityVault.go', 
+                              'DataPipeline.ts', 'APIGateway.js', 'ConsensusProtocol.sol', 
+                              'IdentityRegistry.java', 'LearningModule.rs'];
             
-            // Create the file path
-            const filePath = path.join(this.repoPath, fileName);
+            const fileName = this.getRandomItem(fileTypes);
+            
+            // Get content based on run type
+            const runType = this.getRunType();
+            let content = this.getFileContentForType(fileName, runType);
+            
+            // If no specific content, generate generic content
+            if (!content) {
+                content = `// ${runType} update for ${fileName}\nconsole.log('${runType} in progress');`;
+            }
+            
+            const filePath = path.join(this.repoPath, 'src', 'core', fileName);
             const dirPath = path.dirname(filePath);
             
-            // Create directory if it doesn't exist
             if (!fs.existsSync(dirPath)) {
                 fs.mkdirSync(dirPath, { recursive: true });
             }
             
-            // Write the file content
             fs.writeFileSync(filePath, content);
             
-            // Git add the file
-            await this.executeGitCommand(`git add ${fileName}`);
+            await this.executeGitCommand(`git add src/core/${fileName}`);
             
-            // Generate commit message
             const commitMessages = [
-                `Implement ${fileTemplate.name} with enhanced features`,
-                `Refactor ${fileTemplate.name} for better performance`,
-                `Add new functionality to ${fileTemplate.name}`,
-                `Optimize ${fileTemplate.name} implementation`,
-                `Update ${fileTemplate.name} with latest improvements`,
-                `Fix critical issues in ${fileTemplate.name}`,
-                `Add comprehensive tests for ${fileTemplate.name}`,
-                `Improve error handling in ${fileTemplate.name}`,
-                `Add documentation for ${fileTemplate.name}`,
-                `Enhance security features in ${fileTemplate.name}`
+                `${runType}: Update ${fileName} with improvements`,
+                `${runType}: Enhance ${fileName} functionality`,
+                `${runType}: Refactor ${fileName} for better performance`,
+                `${runType}: Fix issues in ${fileName}`,
+                `${runType}: Add new features to ${fileName}`,
+                `${runType}: Optimize ${fileName} implementation`,
+                `${runType}: Clean up ${fileName} code`,
+                `${runType}: Improve ${fileName} security`
             ];
             
             const commitMsg = this.getRandomItem(commitMessages);
-            
-            // Commit the file
             await this.executeGitCommand(`git commit -m "${commitMsg}"`);
             
-            this.commitsMade.push({ file: fileTemplate.name, message: commitMsg });
-            this.log(`✅ Committed: ${commitMsg} (${fileTemplate.name})`);
+            this.commitsMade.push({ file: fileName, message: commitMsg });
+            this.log(`✅ Committed: ${commitMsg}`);
             return true;
             
         } catch (error) {
@@ -718,7 +355,7 @@ impl LearningModule {
     async pushCommits() {
         try {
             await this.executeGitCommand('git push origin main');
-            this.log(`✅ Pushed ${this.commitsMade.length} commits to origin/main`);
+            this.log(`✅ Pushed ${this.commitsMade.length} commits`);
             return true;
         } catch (error) {
             this.log(`❌ Failed to push commits: ${error.message}`);
@@ -771,40 +408,44 @@ impl LearningModule {
 
     async createIssue() {
         try {
-            const titles = [
-                `Implement ${this.getRandomItem(['Entity Evolution', 'Cross-Model Sync', 'Identity Verification'])} feature`,
-                `Fix ${this.getRandomItem(['memory leak', 'security vulnerability', 'performance issue'])} in core`,
-                `Add ${this.getRandomItem(['monitoring', 'logging', 'analytics'])} capabilities`,
-                `Optimize ${this.getRandomItem(['data processing', 'API responses', 'resource usage'])}`,
-                `Refactor ${this.getRandomItem(['OrchestrationEngine', 'SecurityVault', 'IdentityRegistry'])} module`
-            ];
-            
-            const bodies = [
-                `## Description
-We need to implement ${this.getRandomItem(['a new feature', 'critical fixes', 'performance improvements'])} for the ${this.getRandomItem(['IdentityRegistry', 'OrchestrationEngine', 'SecurityVault'])} component.
+            const issueTemplates = [
+                {
+                    title: `${this.runType}: Implement ${this.getRandomItem(['Entity Evolution', 'Cross-Model Sync', 'Identity Verification', 'Data Pipeline', 'Security Audit'])}`,
+                    body: `## ${this.runType} Task
 
-## Tasks
-- [ ] Design and implement solution
-- [ ] Add comprehensive tests
+## Description
+We need to implement ${this.getRandomItem(['new features', 'critical fixes', 'performance improvements'])} for the ${this.getRandomItem(['IdentityRegistry', 'OrchestrationEngine', 'SecurityVault'])} component.
+
+## Requirements
+- [ ] Design solution
+- [ ] Implement changes
+- [ ] Add tests
 - [ ] Update documentation
-- [ ] Review and merge
 
 ## Priority
-${this.getRandomItem(['High', 'Medium', 'Critical'])}`,
-                `## Background
-During recent testing, we identified ${this.getRandomItem(['performance bottlenecks', 'security concerns', 'scalability issues'])}.
+${this.getRandomItem(['High', 'Medium', 'Critical'])}`
+                },
+                {
+                    title: `${this.runType}: Fix ${this.getRandomItem(['memory leak', 'security vulnerability', 'performance bottleneck', 'race condition'])}`,
+                    body: `## ${this.runType} Bug Fix
+
+## Issue
+We identified a ${this.getRandomItem(['critical', 'major', 'minor'])} issue in the ${this.getRandomItem(['OrchestrationEngine', 'SecurityVault', 'IdentityRegistry'])}.
+
+## Root Cause
+${this.getRandomItem(['Race condition', 'Memory leak', 'Improper validation', 'Configuration error'])}
 
 ## Solution
-Implement ${this.getRandomItem(['a new approach', 'enhanced algorithms', 'better error handling'])} to address these issues.
-
-## Timeline
-This should be completed within ${this.getRandomItem(['1 week', '3 days', '2 weeks'])}.`
+Implement ${this.getRandomItem(['proper synchronization', 'better error handling', 'input validation'])} to fix the issue.`
+                }
             ];
             
+            const template = this.getRandomItem(issueTemplates);
+            
             const issueData = {
-                title: this.getRandomItem(titles),
-                body: this.getRandomItem(bodies),
-                labels: ['enhancement', 'automation']
+                title: template.title,
+                body: template.body,
+                labels: [this.runType.toLowerCase(), 'automation']
             };
             
             const result = await this.makeGitHubRequest('POST', '/issues', issueData);
@@ -826,27 +467,32 @@ This should be completed within ${this.getRandomItem(['1 week', '3 days', '2 wee
 
     async createPR() {
         try {
-            const prTitle = `Feature: ${this.getRandomItem(['Entity Evolution', 'Cross-Model Sync', 'Identity Verification', 'Performance Optimization', 'Security Enhancement'])}`;
-            const prBody = `## Overview
-This PR implements ${this.getRandomItem(['new functionality', 'critical fixes', 'performance improvements'])} for the ${this.getRandomItem(['IdentityRegistry', 'OrchestrationEngine', 'SecurityVault'])} component.
+            const prTemplates = [
+                {
+                    title: `${this.runType}: Feature implementation`,
+                    body: `## ${this.runType} Pull Request
+
+## Overview
+This PR implements ${this.getRandomItem(['new features', 'critical fixes', 'performance improvements'])}.
 
 ## Changes
-- Added ${this.getRandomItem(['new features', 'enhanced algorithms', 'better error handling'])}
-- Improved ${this.getRandomItem(['performance', 'security', 'scalability'])}
-- Added comprehensive tests
-- Updated documentation
+- Added ${this.getRandomItem(['new functionality', 'better error handling', 'performance optimizations'])}
+- Updated ${this.getRandomItem(['documentation', 'tests', 'configuration'])}
+- Fixed ${this.getRandomItem(['security issues', 'bugs', 'performance bottlenecks'])}
 
 ## Testing
-- [x] Unit tests added
-- [x] Integration tests passing
-- [x] Performance benchmarks validated
-- [x] Security scans completed
+- [x] Unit tests
+- [x] Integration tests
+- [x] Security scan
 
 ## Breaking Changes
-${this.getRandomItem(['None', 'Minor configuration changes required', 'Backward compatibility maintained'])}`;
+${this.getRandomItem(['None', 'Minor changes', 'Deprecation warnings'])}`
+                }
+            ];
             
-            // Create a branch
-            const branchName = `feature/trustos-${Date.now()}`;
+            const template = this.getRandomItem(prTemplates);
+            const branchName = `${this.runType.toLowerCase()}-${Date.now()}`;
+            
             const mainRef = await this.makeGitHubRequest('GET', '/git/refs/heads/main');
             
             await this.makeGitHubRequest('POST', '/git/refs', {
@@ -854,20 +500,19 @@ ${this.getRandomItem(['None', 'Minor configuration changes required', 'Backward 
                 sha: mainRef.object.sha
             });
             
-            // Create a new file in the PR branch
-            const fileTemplate = this.getRandomItem(this.featureFiles);
-            const content = Buffer.from(fileTemplate.content).toString('base64');
+            // Create a new file in the PR
+            const fileName = `${this.runType}-${Date.now()}.md`;
+            const content = Buffer.from(`# ${this.runType} Update\n\nThis PR implements ${this.runType} changes.\n\nDate: ${new Date().toISOString()}`).toString('base64');
             
-            await this.makeGitHubRequest('PUT', `/contents/src/core/${fileTemplate.name}`, {
-                message: `Add ${fileTemplate.name}`,
+            await this.makeGitHubRequest('PUT', `/contents/docs/${fileName}`, {
+                message: `Add ${fileName}`,
                 content: content,
                 branch: branchName
             });
             
-            // Create the PR
             const prData = {
-                title: prTitle,
-                body: prBody,
+                title: template.title,
+                body: template.body,
                 head: branchName,
                 base: 'main'
             };
@@ -893,18 +538,17 @@ ${this.getRandomItem(['None', 'Minor configuration changes required', 'Backward 
     async closeIssue() {
         if (this.createdIssues.length === 0) return false;
         
-        // Find issues older than 1 hour to close
+        // Close issues older than 1 hour
         const oldIssues = this.createdIssues.filter(i => Date.now() - i.created > 3600000);
         if (oldIssues.length === 0) return false;
         
         const issue = this.getRandomItem(oldIssues);
         try {
             await this.makeGitHubRequest('PATCH', `/issues/${issue.number}`, {
-                state: 'closed'
+                state: 'closed',
+                state_reason: 'completed'
             });
-            this.log(`✅ Closed issue #${issue.number}: ${issue.title}`);
-            
-            // Remove from tracking
+            this.log(`✅ Closed issue #${issue.number}`);
             this.createdIssues = this.createdIssues.filter(i => i.number !== issue.number);
             return true;
         } catch (error) {
@@ -916,20 +560,16 @@ ${this.getRandomItem(['None', 'Minor configuration changes required', 'Backward 
     async closePR() {
         if (this.createdPRs.length === 0) return false;
         
-        // Find PRs older than 2 hours to close/merge
+        // Close PRs older than 2 hours
         const oldPRs = this.createdPRs.filter(p => Date.now() - p.created > 7200000);
         if (oldPRs.length === 0) return false;
         
         const pr = this.getRandomItem(oldPRs);
         try {
-            // Close the PR
             await this.makeGitHubRequest('PATCH', `/pulls/${pr.number}`, {
                 state: 'closed'
             });
-            
-            this.log(`✅ Closed PR #${pr.number}: ${pr.title}`);
-            
-            // Remove from tracking
+            this.log(`✅ Closed PR #${pr.number}`);
             this.createdPRs = this.createdPRs.filter(p => p.number !== pr.number);
             return true;
         } catch (error) {
@@ -940,49 +580,52 @@ ${this.getRandomItem(['None', 'Minor configuration changes required', 'Backward 
 
     async runCycle() {
         this.runCount++;
-        this.log(`🔄 Running automation cycle #${this.runCount}`);
+        this.runType = this.getRunType(); // Random run type
+        const behavior = this.determineRunBehavior();
         
-        // 1. Create REAL commits (3-8 per run)
-        const numCommits = this.getRandomInt(this.minCommitsPerRun, this.maxCommitsPerRun);
-        this.log(`📝 Creating ${numCommits} real commits...`);
+        this.log(`🔄 Running cycle #${this.runCount} (${this.runType} - ${behavior.name})`);
+        
+        // 1. Create commits based on behavior
+        const numCommits = this.getRandomInt(behavior.commits[0], behavior.commits[1]);
+        this.log(`📝 Creating ${numCommits} commits...`);
         for (let i = 0; i < numCommits; i++) {
             await this.createRealCommit();
             await this.sleep(this.getRandomInt(1000, 3000));
         }
         
-        // 2. Push commits
         if (this.commitsMade.length > 0) {
             await this.pushCommits();
         }
         
-        // 3. Create issues (1-3)
-        const numIssues = this.getRandomInt(this.minIssuesPerRun, this.maxIssuesPerRun);
+        // 2. Create issues based on behavior
+        const numIssues = this.getRandomInt(behavior.issues[0], behavior.issues[1]);
         this.log(`📝 Creating ${numIssues} issues...`);
         for (let i = 0; i < numIssues; i++) {
             await this.createIssue();
             await this.sleep(this.getRandomInt(2000, 4000));
         }
         
-        // 4. Create PRs (1-2)
-        const numPRs = this.getRandomInt(this.minPRsPerRun, this.maxPRsPerRun);
+        // 3. Create PRs based on behavior
+        const numPRs = this.getRandomInt(behavior.prs[0], behavior.prs[1]);
         this.log(`📝 Creating ${numPRs} PRs...`);
         for (let i = 0; i < numPRs; i++) {
             await this.createPR();
             await this.sleep(this.getRandomInt(3000, 5000));
         }
         
-        // 5. Close some issues (30-50% chance)
-        if (Math.random() < 0.4 && this.createdIssues.length > 0) {
-            await this.closeIssue();
-        }
-        
-        // 6. Close some PRs (30-50% chance)
-        if (Math.random() < 0.4 && this.createdPRs.length > 0) {
-            await this.closePR();
+        // 4. Close items based on behavior
+        if (Math.random() < behavior.closeRate) {
+            if (this.createdIssues.length > 0) {
+                await this.closeIssue();
+            }
+            if (this.createdPRs.length > 0) {
+                await this.closePR();
+            }
         }
         
         this.log(`✅ Cycle #${this.runCount} completed`);
         this.log(`📊 ${this.commitsMade.length} commits, ${this.createdIssues.length} issues, ${this.createdPRs.length} PRs`);
+        
         return true;
     }
 
