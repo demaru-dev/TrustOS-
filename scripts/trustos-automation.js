@@ -2,31 +2,30 @@
 
 /**
  * TrustOS - Automated Development Orchestrator
- * Complete automation script for managing GitHub activity
+ * Using GitHub API directly instead of gh CLI
  */
 
-const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
+const { exec } = require('child_process');
 
 class TrustOSAutomation {
     constructor() {
         this.repoPath = path.join(__dirname, '..');
         this.logFile = path.join(__dirname, '../automation.log');
-        this.issues = [];
-        this.prs = [];
         this.runCount = 0;
+        this.createdIssues = [];
+        this.createdPRs = [];
         
         // Get token from environment
         this.token = process.env.PAT_TOKEN;
         
         if (!this.token) {
             console.error('❌ PAT_TOKEN environment variable not set!');
-            console.error('Please set PAT_TOKEN in your environment or GitHub secrets.');
             process.exit(1);
         }
         
-        // Use your actual repository name with the dash
         this.repoName = 'TrustOS-';
         this.repoOwner = 'demaru-dev';
         
@@ -66,14 +65,13 @@ class TrustOSAutomation {
             'ConsensusProtocol'
         ];
         
-        // Create logs directory if it doesn't exist
+        // Create logs directory
         const logDir = path.dirname(this.logFile);
         if (!fs.existsSync(logDir)) {
             fs.mkdirSync(logDir, { recursive: true });
         }
         
         this.log('🚀 TrustOS Automation Engine Initialized');
-        this.log(`📁 Repository Path: ${this.repoPath}`);
         this.log(`📦 Repo: ${this.repoOwner}/${this.repoName}`);
         this.log(`🔑 Token configured: ${this.token ? 'Yes' : 'No'}`);
     }
@@ -85,7 +83,7 @@ class TrustOSAutomation {
         try {
             fs.appendFileSync(this.logFile, logMessage + '\n');
         } catch (error) {
-            console.error('Failed to write to log:', error.message);
+            // Silent fail for logging
         }
     }
 
@@ -111,7 +109,7 @@ class TrustOSAutomation {
         const feature = this.getRandomItem(this.features);
         const component = this.getRandomItem(this.components);
         
-        return `${type}: ${feature} implementation for ${component}`;
+        return `${type}: ${feature} for ${component}`;
     }
 
     generateIssueBody() {
@@ -133,9 +131,6 @@ This will significantly improve the ${this.getRandomItem(['efficiency', 'securit
 ## Priority
 ${this.getRandomItem(['High', 'Medium', 'Critical'])}
 
-## Assignees
-@${this.repoOwner}
-
 ## Labels
 ${this.getRandomItem(['enhancement', 'feature', 'infrastructure', 'core'])}`,
 `
@@ -153,9 +148,6 @@ Implement a new version of ${this.getRandomItem(this.features)} that addresses t
 - [ ] Passes security audit
 - [ ] Documentation updated
 - [ ] Integration tests passing
-
-## Timeline
-This should be completed within the current sprint.
 `
         ];
         
@@ -200,266 +192,76 @@ This PR implements ${this.getRandomItem(this.features)} for the ${this.getRandom
 - [ ] Performance benchmarks validated
 - [ ] Security scans completed
 
-## Related Issues
-Closes #${Math.floor(Math.random() * 50) + 1}
-
 ## Breaking Changes
 ${this.getRandomItem(['None', 'Minor configuration changes required', 'Backward compatibility maintained'])}
         `;
     }
 
-    createCommitMessage() {
-        const actions = [
-            'Add', 'Update', 'Fix', 'Refactor', 
-            'Optimize', 'Enhance', 'Implement', 
-            'Improve', 'Resolve', 'Integrate'
-        ];
-        
-        const action = this.getRandomItem(actions);
-        const feature = this.getRandomItem(this.features);
-        const component = this.getRandomItem(this.components);
-        
-        return `${action} ${feature} for ${component}`;
-    }
-
-    generateFileContent() {
-        const components = {
-            'EntityEvolution.ts': `
-export class EntityEvolutionEngine {
-    private evolutionTrack: EvolutionTrack;
-    private learningRate: number;
-
-    constructor(config: EvolutionConfig) {
-        this.evolutionTrack = new EvolutionTrack();
-        this.learningRate = config.learningRate || 0.01;
-    }
-
-    async evolve(entity: AIEntity): Promise<EvolvedEntity> {
-        const currentState = await this.analyzeState(entity);
-        const evolutionPath = this.calculateEvolutionPath(currentState);
-        const evolved = await this.applyEvolution(entity, evolutionPath);
-        
-        await this.recordEvolution(entity.id, evolved);
-        return evolved;
-    }
-
-    private async analyzeState(entity: AIEntity): Promise<EntityState> {
-        return {
-            capabilities: await this.capabilityAnalyzer.analyze(entity),
-            performance: await this.performanceMonitor.getMetrics(entity),
-            memory: await this.memoryAnalyzer.analyze(entity)
-        };
-    }
-
-    private calculateEvolutionPath(state: EntityState): EvolutionPath {
-        return {
-            targets: this.identifyTargets(state),
-            resources: this.calculateResources(state),
-            timeline: this.estimateTimeline(state)
-        };
-    }
-}
-            `,
-            'OrchestrationEngine.py': `
-import asyncio
-from typing import List, Dict, Optional
-from dataclasses import dataclass
-
-@dataclass
-class Task:
-    id: str
-    entity_id: str
-    task_type: str
-    payload: Dict
-    priority: int
-    status: str
-
-class OrchestrationEngine:
-    def __init__(self):
-        self.task_queue = asyncio.Queue()
-        self.running_tasks: Dict[str, Task] = {}
-        self.entity_registry = {}
-        self.resource_manager = ResourceManager()
-        self.scheduler = Scheduler()
-        
-    async def start(self):
-        await self.initialize_entities()
-        await self.start_scheduler()
-        await self.task_processor()
-        
-    async def task_processor(self):
-        while True:
-            task = await self.task_queue.get()
-            entity = self.entity_registry.get(task.entity_id)
-            
-            if entity and self.resource_manager.has_capacity():
-                await self.assign_task_to_entity(task, entity)
-                self.running_tasks[task.id] = task
-            else:
-                await self.task_queue.put(task)
-                await asyncio.sleep(1)
-                
-    async def assign_task_to_entity(self, task: Task, entity: AEntity):
-        try:
-            result = await entity.process_task(task)
-            await self.record_task_result(task.id, result)
-            task.status = 'completed'
-        except Exception as e:
-            await self.handle_task_failure(task, e)
-            
-    def get_metrics(self) -> Dict:
-        return {
-            'queue_size': self.task_queue.qsize(),
-            'running_tasks': len(self.running_tasks),
-            'registered_entities': len(self.entity_registry),
-            'resource_usage': self.resource_manager.get_usage()
-        }
-            `,
-            'SecurityVault.go': `
-package security
-
-import (
-    "crypto/aes"
-    "crypto/cipher"
-    "crypto/rand"
-    "encoding/base64"
-    "errors"
-    "time"
-)
-
-type SecurityVault struct {
-    encryptionKey []byte
-    entities      map[string]*EntityIdentity
-    auditLog      []AuditEntry
-}
-
-type EntityIdentity struct {
-    ID          string
-    PublicKey   string
-    PrivateKey  string
-    CreatedAt   time.Time
-    LastRotated time.Time
-}
-
-type AuditEntry struct {
-    Timestamp   time.Time
-    EntityID    string
-    Action      string
-    Success     bool
-    IPAddress   string
-}
-
-func NewSecurityVault(key string) *SecurityVault {
-    return &SecurityVault{
-        encryptionKey: []byte(key),
-        entities:      make(map[string]*EntityIdentity),
-        auditLog:      []AuditEntry{},
-    }
-}
-
-func (v *SecurityVault) RegisterEntity(entityID string) (*EntityIdentity, error) {
-    if _, exists := v.entities[entityID]; exists {
-        return nil, errors.New("entity already registered")
-    }
-    
-    identity := &EntityIdentity{
-        ID:          entityID,
-        CreatedAt:   time.Now(),
-        LastRotated: time.Now(),
-    }
-    
-    publicKey, privateKey, err := v.generateKeyPair()
-    if err != nil {
-        return nil, err
-    }
-    
-    identity.PublicKey = publicKey
-    identity.PrivateKey = privateKey
-    
-    v.entities[entityID] = identity
-    v.logAudit(entityID, "register", true)
-    
-    return identity, nil
-}
-
-func (v *SecurityVault) AuthenticateEntity(entityID string, token string) bool {
-    identity, exists := v.entities[entityID]
-    if !exists {
-        return false
-    }
-    
-    valid := v.verifyToken(token, identity.PublicKey)
-    v.logAudit(entityID, "authenticate", valid)
-    
-    return valid
-}
-
-func (v *SecurityVault) Encrypt(data []byte) (string, error) {
-    block, err := aes.NewCipher(v.encryptionKey)
-    if err != nil {
-        return "", err
-    }
-    
-    gcm, err := cipher.NewGCM(block)
-    if err != nil {
-        return "", err
-    }
-    
-    nonce := make([]byte, gcm.NonceSize())
-    if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-        return "", err
-    }
-    
-    ciphertext := gcm.Seal(nonce, nonce, data, nil)
-    return base64.StdEncoding.EncodeToString(ciphertext), nil
-}
-            `
-        };
-        
-        const filename = this.getRandomItem(Object.keys(components));
-        return {
-            filename: `src/core/${filename}`,
-            content: components[filename]
-        };
-    }
-
-    executeCommand(command) {
+    // Direct GitHub API call instead of gh CLI
+    makeGitHubRequest(method, endpoint, data = null) {
         return new Promise((resolve, reject) => {
-            this.log(`Executing: ${command}`);
-            exec(command, { 
-                cwd: this.repoPath,
-                env: { 
-                    ...process.env, 
-                    PAT_TOKEN: this.token,
-                    GITHUB_TOKEN: this.token
-                },
-                timeout: 30000 // 30 second timeout
-            }, (error, stdout, stderr) => {
-                if (error) {
-                    this.log(`❌ Command failed: ${error.message}`);
-                    if (stderr) this.log(`stderr: ${stderr}`);
-                    reject(error);
-                } else {
-                    if (stdout) this.log(`stdout: ${stdout}`);
-                    resolve(stdout);
+            const options = {
+                hostname: 'api.github.com',
+                path: `/repos/${this.repoOwner}/${this.repoName}${endpoint}`,
+                method: method,
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': 'TrustOS-Automation'
                 }
+            };
+
+            const req = https.request(options, (res) => {
+                let responseData = '';
+                res.on('data', (chunk) => {
+                    responseData += chunk;
+                });
+                res.on('end', () => {
+                    try {
+                        const parsed = JSON.parse(responseData);
+                        if (res.statusCode >= 200 && res.statusCode < 300) {
+                            resolve(parsed);
+                        } else {
+                            reject(new Error(`HTTP ${res.statusCode}: ${JSON.stringify(parsed)}`));
+                        }
+                    } catch (e) {
+                        reject(new Error(`Failed to parse response: ${responseData}`));
+                    }
+                });
             });
+
+            req.on('error', (error) => {
+                reject(error);
+            });
+
+            if (data) {
+                req.write(JSON.stringify(data));
+            }
+            req.end();
         });
     }
 
     async createIssue() {
-        const title = this.generateIssueTitle();
-        const body = this.generateIssueBody();
-        
         try {
-            const escapedBody = body.replace(/"/g, '\\"').replace(/\n/g, '\\n');
-            const escapedTitle = title.replace(/"/g, '\\"');
+            const title = this.generateIssueTitle();
+            const body = this.generateIssueBody();
             
-            await this.executeCommand(
-                `gh issue create --title "${escapedTitle}" --body "${escapedBody}" --label "automation,enhancement"`
-            );
-            this.issues.push({ title, body, created: new Date() });
-            this.log(`✅ Created issue: ${title}`);
+            const issueData = {
+                title: title,
+                body: body,
+                labels: ['automation', 'enhancement']
+            };
+            
+            const result = await this.makeGitHubRequest('POST', '/issues', issueData);
+            
+            this.createdIssues.push({ 
+                number: result.number, 
+                title: result.title,
+                url: result.html_url
+            });
+            
+            this.log(`✅ Created issue #${result.number}: ${result.title}`);
+            this.log(`   URL: ${result.html_url}`);
             return true;
         } catch (error) {
             this.log(`❌ Failed to create issue: ${error.message}`);
@@ -468,63 +270,130 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
     }
 
     async createPR() {
-        const file = this.generateFileContent();
-        const fileName = file.filename;
-        const content = file.content;
-        
-        const branchName = `feature/trustos-${Date.now()}`;
-        const prTitle = this.generatePRTitle();
-        const prDesc = this.generatePRDescription();
-        
         try {
-            await this.executeCommand(`git checkout -b ${branchName}`);
+            // Generate file content
+            const fileContent = this.generateFileContent();
+            const fileName = fileContent.filename;
+            const content = fileContent.content;
             
-            const filePath = path.join(this.repoPath, fileName);
-            const dirPath = path.dirname(filePath);
-            if (!fs.existsSync(dirPath)) {
-                fs.mkdirSync(dirPath, { recursive: true });
-            }
-            fs.writeFileSync(filePath, content);
+            const branchName = `feature/trustos-${Date.now()}`;
+            const prTitle = this.generatePRTitle();
+            const prDesc = this.generatePRDescription();
             
-            await this.executeCommand(`git add ${fileName}`);
-            const commitMsg = this.createCommitMessage();
-            await this.executeCommand(`git commit -m "${commitMsg}"`);
+            // 1. Get the current main branch SHA
+            const mainRef = await this.makeGitHubRequest('GET', '/git/refs/heads/main');
+            const baseSha = mainRef.object.sha;
             
-            await this.executeCommand(`git push origin ${branchName}`);
+            // 2. Create a new branch
+            await this.makeGitHubRequest('POST', '/git/refs', {
+                ref: `refs/heads/${branchName}`,
+                sha: baseSha
+            });
             
-            await this.executeCommand(
-                `gh pr create --title "${prTitle}" --body "${prDesc}" --base main`
-            );
+            // 3. Create the file
+            const filePath = `src/core/${fileName}`;
+            const contentBuffer = Buffer.from(content).toString('base64');
             
-            this.prs.push({ title: prTitle, branch: branchName, created: new Date() });
-            this.log(`✅ Created PR: ${prTitle}`);
+            await this.makeGitHubRequest('PUT', `/contents/${filePath}`, {
+                message: `Add ${fileName}`,
+                content: contentBuffer,
+                branch: branchName
+            });
             
-            await this.executeCommand('git checkout main');
+            // 4. Create the PR
+            const prData = {
+                title: prTitle,
+                body: prDesc,
+                head: branchName,
+                base: 'main'
+            };
+            
+            const result = await this.makeGitHubRequest('POST', '/pulls', prData);
+            
+            this.createdPRs.push({
+                number: result.number,
+                title: result.title,
+                url: result.html_url
+            });
+            
+            this.log(`✅ Created PR #${result.number}: ${result.title}`);
+            this.log(`   URL: ${result.html_url}`);
             return true;
-            
         } catch (error) {
             this.log(`❌ Failed to create PR: ${error.message}`);
-            await this.executeCommand('git checkout main').catch(() => {});
             return false;
         }
     }
 
-    async closeIssue() {
-        if (this.issues.length === 0) return false;
+    generateFileContent() {
+        const files = {
+            'EntityEvolution.ts': `export class EntityEvolutionEngine {
+    private evolutionTrack: any;
+    private learningRate: number;
+
+    constructor(config: any) {
+        this.evolutionTrack = {};
+        this.learningRate = config.learningRate || 0.01;
+    }
+
+    async evolve(entity: any): Promise<any> {
+        console.log(\`Evolving entity: \${entity.id}\`);
+        return {
+            id: entity.id,
+            evolved: true,
+            timestamp: new Date().toISOString()
+        };
+    }
+}`,
+            'OrchestrationEngine.py': `class OrchestrationEngine:
+    def __init__(self):
+        self.task_queue = []
+        self.entities = {}
         
-        const issue = this.issues.pop();
+    async def start(self):
+        print("Orchestration Engine started")
+        return True
+        
+    def get_metrics(self):
+        return {
+            'queue_size': len(self.task_queue),
+            'registered_entities': len(self.entities)
+        }`,
+            'SecurityVault.go': `package security
+
+type SecurityVault struct {
+    entities map[string]string
+}
+
+func NewSecurityVault() *SecurityVault {
+    return &SecurityVault{
+        entities: make(map[string]string),
+    }
+}
+
+func (v *SecurityVault) RegisterEntity(id string) error {
+    v.entities[id] = "registered"
+    return nil
+}`
+        };
+        
+        const filename = this.getRandomItem(Object.keys(files));
+        return {
+            filename: filename,
+            content: files[filename]
+        };
+    }
+
+    async closeIssue() {
+        if (this.createdIssues.length === 0) return false;
+        
+        const issue = this.createdIssues.pop();
         try {
-            const result = await this.executeCommand(
-                `gh issue list --search "${issue.title}" --state open --json number`
-            );
-            const issues = JSON.parse(result);
-            if (issues && issues.length > 0) {
-                const issueNumber = issues[0].number;
-                await this.executeCommand(`gh issue close ${issueNumber} -c "Completed work on ${issue.title}"`);
-                this.log(`✅ Closed issue #${issueNumber}: ${issue.title}`);
-                return true;
-            }
-            return false;
+            await this.makeGitHubRequest('PATCH', `/issues/${issue.number}`, {
+                state: 'closed'
+            });
+            this.log(`✅ Closed issue #${issue.number}: ${issue.title}`);
+            return true;
         } catch (error) {
             this.log(`❌ Failed to close issue: ${error.message}`);
             return false;
@@ -532,22 +401,15 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
     }
 
     async closePR() {
-        if (this.prs.length === 0) return false;
+        if (this.createdPRs.length === 0) return false;
         
-        const pr = this.prs.pop();
+        const pr = this.createdPRs.pop();
         try {
-            const result = await this.executeCommand(
-                `gh pr list --search "${pr.title}" --state open --json number`
-            );
-            const prs = JSON.parse(result);
-            if (prs && prs.length > 0) {
-                const prNumber = prs[0].number;
-                await this.executeCommand(`gh pr close ${prNumber} -c "Merging ${pr.title} into main"`);
-                await this.executeCommand(`gh pr merge ${prNumber} --merge`);
-                this.log(`✅ Closed and merged PR #${prNumber}: ${pr.title}`);
-                return true;
-            }
-            return false;
+            await this.makeGitHubRequest('PATCH', `/pulls/${pr.number}`, {
+                state: 'closed'
+            });
+            this.log(`✅ Closed PR #${pr.number}: ${pr.title}`);
+            return true;
         } catch (error) {
             this.log(`❌ Failed to close PR: ${error.message}`);
             return false;
@@ -558,39 +420,33 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
         this.runCount++;
         this.log(`🔄 Running automation cycle #${this.runCount}`);
         
-        try {
-            await this.executeCommand('git fetch origin');
-            await this.executeCommand('git checkout main');
-            await this.executeCommand('git pull origin main');
-            
-            const numIssues = Math.floor(Math.random() * 2) + 2;
-            for (let i = 0; i < numIssues; i++) {
-                await this.createIssue();
-                await this.sleep(5000);
-            }
-            
-            const numPRs = Math.floor(Math.random() * 2) + 1;
-            for (let i = 0; i < numPRs; i++) {
-                await this.createPR();
-                await this.sleep(8000);
-            }
-            
-            if (Math.random() < 0.15 && this.issues.length > 0) {
-                await this.closeIssue();
-                await this.sleep(3000);
-            }
-            
-            if (Math.random() < 0.15 && this.prs.length > 0) {
-                await this.closePR();
-                await this.sleep(3000);
-            }
-            
-            this.log(`✅ Cycle #${this.runCount} completed successfully`);
-            return true;
-        } catch (error) {
-            this.log(`❌ Cycle #${this.runCount} failed: ${error.message}`);
-            return false;
+        // Create 2-3 issues
+        const numIssues = Math.floor(Math.random() * 2) + 2;
+        for (let i = 0; i < numIssues; i++) {
+            await this.createIssue();
+            await this.sleep(2000);
         }
+        
+        // Create 1-2 PRs
+        const numPRs = Math.floor(Math.random() * 2) + 1;
+        for (let i = 0; i < numPRs; i++) {
+            await this.createPR();
+            await this.sleep(3000);
+        }
+        
+        // Close some issues (30% chance)
+        if (Math.random() < 0.3 && this.createdIssues.length > 0) {
+            await this.closeIssue();
+        }
+        
+        // Close some PRs (30% chance)
+        if (Math.random() < 0.3 && this.createdPRs.length > 0) {
+            await this.closePR();
+        }
+        
+        this.log(`✅ Cycle #${this.runCount} completed`);
+        this.log(`📊 Created ${this.createdIssues.length} issues, ${this.createdPRs.length} PRs`);
+        return true;
     }
 
     sleep(ms) {
@@ -599,11 +455,16 @@ func (v *SecurityVault) Encrypt(data []byte) (string, error) {
 
     async run() {
         this.log('🚀 TrustOS Automation Engine Started');
+        
+        // Run one full cycle
         await this.runCycle();
+        
         this.log('✅ Automation run completed');
+        this.log(`📊 Total: ${this.createdIssues.length} issues, ${this.createdPRs.length} PRs created`);
     }
 }
 
+// Start the automation
 const automation = new TrustOSAutomation();
 automation.run().catch(error => {
     console.error('Fatal error:', error);
