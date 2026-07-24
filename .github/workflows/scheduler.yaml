@@ -2,8 +2,8 @@ name: TrustOS Dynamic Scheduler
 
 on:
   schedule:
-    # Run every 5 minutes to check if we need to trigger
-    - cron: '*/5 * * * *'
+    # Run every 2 minutes to check if we need to trigger
+    - cron: '*/2 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -36,3 +36,4 @@ jobs:
       run: |
         echo "Starting scheduler..."
         node scripts/scheduler.js
+        echo "Scheduler completed a check cycle"
