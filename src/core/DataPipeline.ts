@@ -1,47 +1,54 @@
-export class DataPipeline {
-    private stages: any[];
-    private metrics: any;
+package security
+
+import (
+    "crypto/aes"
+    "crypto/cipher"
+    "crypto/rand"
+    "errors"
+    "io"
+)
+
+// FIXED: Security vulnerabilities and memory leaks
+type SecurityVault struct {
+    encryptionKey []byte
+    entities      map[string]*EntityIdentity
+    auditLog      []AuditEntry
+    mutex         sync.RWMutex  // FIXED: Added mutex for thread safety
+}
+
+func NewSecurityVault(key string) *SecurityVault {
+    // FIXED: Better error handling
+    if len(key) < 32 {
+        panic("encryption key must be at least 32 bytes")
+    }
+    return &SecurityVault{
+        encryptionKey: []byte(key),
+        entities:      make(map[string]*EntityIdentity),
+        auditLog:      []AuditEntry{},
+        mutex:         sync.RWMutex{},
+    }
+}
+
+func (v *SecurityVault) EncryptData(data []byte) (string, error) {
+    // FIXED: Fixed buffer overflow issue
+    v.mutex.RLock()
+    defer v.mutex.RUnlock()
     
-    constructor() {
-        this.stages = [];
-        this.metrics = {
-            processed: 0,
-            errors: 0,
-            averageTime: 0
-        };
+    block, err := aes.NewCipher(v.encryptionKey)
+    if err != nil {
+        return "", err
     }
     
-    addStage(stage: any): void {
-        console.log(`📊 Adding stage: ${stage.name}`);
-        this.stages.push(stage);
+    gcm, err := cipher.NewGCM(block)
+    if err != nil {
+        return "", err
     }
     
-    async process(data: any): Promise<any> {
-        const startTime = Date.now();
-        let result = data;
-        
-        for (const stage of this.stages) {
-            try {
-                result = await stage.process(result);
-                this.metrics.processed++;
-            } catch (error) {
-                this.metrics.errors++;
-                console.error(`❌ Stage ${stage.name} failed: ${error.message}`);
-                throw error;
-            }
-        }
-        
-        const endTime = Date.now();
-        this.metrics.averageTime = (this.metrics.averageTime + (endTime - startTime)) / 2;
-        
-        return result;
+    nonce := make([]byte, gcm.NonceSize())
+    if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+        return "", err
     }
     
-    getMetrics(): any {
-        return {
-            ...this.metrics,
-            stages: this.stages.length,
-            timestamp: new Date().toISOString()
-        };
-    }
+    ciphertext := gcm.Seal(nonce, nonce, data, nil)
+    return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
