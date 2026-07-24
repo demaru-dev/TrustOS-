@@ -2,26 +2,27 @@
 
 /**
  * Dynamic Scheduler for TrustOS Automation
+ * Uses GitHub API directly to trigger workflows
  */
 
-const { exec } = require('child_process');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const cron = require('node-cron');
 
 class DynamicScheduler {
     constructor() {
         this.runCount = 0;
-        this.baseDelay = 45;
+        this.baseDelay = 45; // minutes
         this.currentDelay = this.baseDelay;
         this.logFile = path.join(__dirname, '../scheduler.log');
-        this.isRunning = false;
         this.lastRunFile = path.join(__dirname, '../.lastrun');
+        this.isRunning = false;
         
-        // IMPORTANT: Use your actual repository name with the dash
+        // Repository info
         this.repoOwner = 'demaru-dev';
-        this.repoName = 'TrustOS-';  // Note the dash at the end
+        this.repoName = 'TrustOS-';
         
+        // Get token from environment
         this.token = process.env.PAT_TOKEN;
         
         if (!this.token) {
@@ -29,11 +30,13 @@ class DynamicScheduler {
             process.exit(1);
         }
         
+        // Create logs directory
         const logDir = path.dirname(this.logFile);
         if (!fs.existsSync(logDir)) {
             fs.mkdirSync(logDir, { recursive: true });
         }
         
+        // Read last run time
         if (fs.existsSync(this.lastRunFile)) {
             try {
                 this.lastRunTime = parseInt(fs.readFileSync(this.lastRunFile, 'utf8'));
@@ -48,6 +51,7 @@ class DynamicScheduler {
         this.log('🚀 Dynamic Scheduler Initialized');
         this.log(`📦 Repo: ${this.repoOwner}/${this.repoName}`);
         this.log(`📊 Initial delay: ${this.baseDelay} minutes`);
+        this.log(`🔑 Token configured: ${this.token ? 'Yes' : 'No'}`);
     }
 
     log(message) {
@@ -57,22 +61,50 @@ class DynamicScheduler {
         try {
             fs.appendFileSync(this.logFile, logMessage + '\n');
         } catch (error) {
-            console.error('Failed to write to log:', error.message);
+            // Silent fail for logging
         }
     }
 
-    executeCommand(command) {
+    makeGitHubRequest(method, endpoint, data = null) {
         return new Promise((resolve, reject) => {
-            this.log(`Executing: ${command}`);
-            exec(command, (error, stdout, stderr) => {
-                if (error) {
-                    this.log(`❌ Command failed: ${error.message}`);
-                    reject(error);
-                } else {
-                    if (stdout) this.log(`stdout: ${stdout}`);
-                    resolve(stdout);
+            const options = {
+                hostname: 'api.github.com',
+                path: `/repos/${this.repoOwner}/${this.repoName}${endpoint}`,
+                method: method,
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': 'TrustOS-Scheduler'
                 }
+            };
+
+            const req = https.request(options, (res) => {
+                let responseData = '';
+                res.on('data', (chunk) => {
+                    responseData += chunk;
+                });
+                res.on('end', () => {
+                    try {
+                        if (res.statusCode >= 200 && res.statusCode < 300) {
+                            const parsed = JSON.parse(responseData);
+                            resolve(parsed);
+                        } else {
+                            reject(new Error(`HTTP ${res.statusCode}: ${responseData}`));
+                        }
+                    } catch (e) {
+                        reject(new Error(`Failed to parse response: ${responseData}`));
+                    }
+                });
             });
+
+            req.on('error', (error) => {
+                reject(error);
+            });
+
+            if (data) {
+                req.write(JSON.stringify(data));
+            }
+            req.end();
         });
     }
 
@@ -88,22 +120,23 @@ class DynamicScheduler {
         try {
             this.log(`🚀 Triggering automation run #${this.runCount}`);
             
-            const triggerCommand = `
-                curl -X POST \
-                -H "Authorization: token ${this.token}" \
-                -H "Accept: application/vnd.github.v3+json" \
-                https://api.github.com/repos/${this.repoOwner}/${this.repoName}/actions/workflows/automation.yml/dispatches \
-                -d '{"ref":"main"}'
-            `;
-            
-            await this.executeCommand(triggerCommand);
+            // Trigger the workflow via GitHub API
+            await this.makeGitHubRequest(
+                'POST',
+                '/actions/workflows/automation.yml/dispatches',
+                { ref: 'main' }
+            );
             
             this.log(`✅ Successfully triggered automation run #${this.runCount}`);
             
+            // Update the schedule for next run
             this.currentDelay = this.baseDelay + this.runCount;
             this.log(`⏰ Next run scheduled in ${this.currentDelay} minutes`);
             
+            // Save the last run time
             fs.writeFileSync(this.lastRunFile, Date.now().toString());
+            
+            this.log(`📊 Total runs triggered: ${this.runCount}`);
             
         } catch (error) {
             this.log(`❌ Failed to trigger automation: ${error.message}`);
@@ -116,14 +149,30 @@ class DynamicScheduler {
         this.log('🚀 Dynamic Scheduler Started');
         this.log(`📊 Initial delay: ${this.baseDelay} minutes`);
         
+        // Check if we should run immediately
         if (this.lastRunTime === 0) {
             this.log('⏰ No previous run found, triggering initial run...');
             setTimeout(() => {
                 this.triggerAutomation();
             }, 5000);
+        } else {
+            // Calculate when next run should be
+            const now = Date.now();
+            const minutesSinceLastRun = (now - this.lastRunTime) / (60 * 1000);
+            
+            if (minutesSinceLastRun >= this.currentDelay) {
+                this.log(`⏰ ${minutesSinceLastRun.toFixed(1)} minutes since last run, triggering...`);
+                setTimeout(() => {
+                    this.triggerAutomation();
+                }, 5000);
+            } else {
+                const waitMinutes = this.currentDelay - minutesSinceLastRun;
+                this.log(`⏰ Next run in ${waitMinutes.toFixed(1)} minutes`);
+            }
         }
         
-        cron.schedule('* * * * *', async () => {
+        // Set up interval to check every minute
+        setInterval(async () => {
             const now = Date.now();
             let lastRunTime = 0;
             
@@ -140,17 +189,14 @@ class DynamicScheduler {
             if (minutesSinceLastRun >= this.currentDelay && lastRunTime > 0) {
                 this.log(`⏰ ${minutesSinceLastRun.toFixed(1)} minutes since last run, triggering...`);
                 await this.triggerAutomation();
-            } else if (lastRunTime === 0) {
-                await this.triggerAutomation();
             }
-        });
+        }, 60000); // Check every minute
         
         this.log('✅ Scheduler running...');
+        this.log('💡 Press Ctrl+C to stop');
     }
 }
 
+// Create and start the scheduler
 const scheduler = new DynamicScheduler();
-scheduler.start().catch(error => {
-    console.error('Fatal error:', error);
-    process.exit(1);
-});
+scheduler.start();
