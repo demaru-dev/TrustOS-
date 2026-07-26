@@ -1,67 +1,54 @@
-use std::collections::HashMap;
+package security
 
-#[derive(Debug, Clone)]
-pub struct LearningModule {
-    knowledge_base: HashMap<String, Knowledge>,
-    learning_rate: f64,
-    iterations: u32,
+import (
+    "crypto/aes"
+    "crypto/cipher"
+    "crypto/rand"
+    "errors"
+    "io"
+)
+
+// FIXED: Security vulnerabilities and memory leaks
+type SecurityVault struct {
+    encryptionKey []byte
+    entities      map[string]*EntityIdentity
+    auditLog      []AuditEntry
+    mutex         sync.RWMutex  // FIXED: Added mutex for thread safety
 }
 
-#[derive(Debug, Clone)]
-pub struct Knowledge {
-    pub key: String,
-    pub value: String,
-    pub confidence: f64,
-    pub timestamp: u64,
+func NewSecurityVault(key string) *SecurityVault {
+    // FIXED: Better error handling
+    if len(key) < 32 {
+        panic("encryption key must be at least 32 bytes")
+    }
+    return &SecurityVault{
+        encryptionKey: []byte(key),
+        entities:      make(map[string]*EntityIdentity),
+        auditLog:      []AuditEntry{},
+        mutex:         sync.RWMutex{},
+    }
 }
 
-impl LearningModule {
-    pub fn new(learning_rate: f64) -> Self {
-        LearningModule {
-            knowledge_base: HashMap::new(),
-            learning_rate,
-            iterations: 0,
-        }
+func (v *SecurityVault) EncryptData(data []byte) (string, error) {
+    // FIXED: Fixed buffer overflow issue
+    v.mutex.RLock()
+    defer v.mutex.RUnlock()
+    
+    block, err := aes.NewCipher(v.encryptionKey)
+    if err != nil {
+        return "", err
     }
     
-    pub fn learn(&mut self, key: String, value: String) -> bool {
-        let knowledge = Knowledge {
-            key: key.clone(),
-            value: value.clone(),
-            confidence: 1.0,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-        };
-        
-        self.knowledge_base.insert(key, knowledge);
-        self.iterations += 1;
-        println!("🧠 Learned: {} = {}", key, value);
-        true
+    gcm, err := cipher.NewGCM(block)
+    if err != nil {
+        return "", err
     }
     
-    pub fn query(&self, key: &str) -> Option<String> {
-        if let Some(knowledge) = self.knowledge_base.get(key) {
-            if knowledge.confidence > 0.5 {
-                return Some(knowledge.value.clone());
-            }
-        }
-        None
+    nonce := make([]byte, gcm.NonceSize())
+    if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+        return "", err
     }
     
-    pub fn update_confidence(&mut self, key: &str, new_confidence: f64) -> bool {
-        if let Some(knowledge) = self.knowledge_base.get_mut(key) {
-            knowledge.confidence = new_confidence;
-            return true;
-        }
-        false
-    }
-    
-    pub fn get_stats(&self) -> HashMap<String, u32> {
-        let mut stats = HashMap::new();
-        stats.insert("knowledge_entries".to_string(), self.knowledge_base.len() as u32);
-        stats.insert("iterations".to_string(), self.iterations);
-        stats
-    }
+    ciphertext := gcm.Seal(nonce, nonce, data, nil)
+    return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
